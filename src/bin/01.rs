@@ -8,27 +8,29 @@ const DIGITS: [&str; 9] = [
 pub fn part_one(input: &str) -> Option<u32> {
     let mut result = 0;
     input.lines().for_each(|l| {
-        if let Some(value) = find_first_and_last(l, false) {
+        if let Some(value) = find_first_and_last(l, &None, &None) {
             result += value;
         }
     });
     Some(result)
 }
 
-fn find_first_and_last(input: &str, pt_2: bool) -> Option<u32> {
-    let digits = DIGITS.iter().map(|&s| s.to_string()).collect();
-    let first = find_digit(input, digits, pt_2)?;
+fn find_first_and_last(
+    input: &str,
+    digits: &Option<Vec<String>>,
+    reversed_digits: &Option<Vec<String>>,
+) -> Option<u32> {
+    let first = find_digit(input, &digits)?;
 
     let reversed_input: String = input.chars().rev().collect();
-    let reversed_digits = DIGITS.iter().map(|&d| d.chars().rev().collect()).collect();
-    let last = find_digit(&reversed_input, reversed_digits, pt_2)?;
+    let last = find_digit(&reversed_input, &reversed_digits)?;
 
     let mut result = String::from(first);
     result.push(last);
     result.parse().ok()
 }
 
-fn find_digit(input: &str, digits: Vec<String>, pt_2: bool) -> Option<char> {
+fn find_digit(input: &str, digits: &Option<Vec<String>>) -> Option<char> {
     let mut smallest_index = match input.find(|c: char| c.is_numeric()) {
         Some(index) => index,
         None => input.len(),
@@ -37,10 +39,10 @@ fn find_digit(input: &str, digits: Vec<String>, pt_2: bool) -> Option<char> {
     let mut counter: u32 = 0;
     let mut result = input.chars().nth(smallest_index);
 
-    if pt_2 {
-        for digit in digits {
+    if digits.is_some() {
+        for digit in digits.as_ref().unwrap() {
             counter += 1;
-            let index = match input.find(&digit) {
+            let index = match input.find(digit) {
                 Some(val) => val,
                 None => continue,
             };
@@ -55,8 +57,11 @@ fn find_digit(input: &str, digits: Vec<String>, pt_2: bool) -> Option<char> {
 
 pub fn part_two(input: &str) -> Option<u32> {
     let mut result = 0;
+    let digits = Some(DIGITS.iter().map(|&s| s.to_string()).collect());
+    let reversed_digits = Some(DIGITS.iter().map(|&d| d.chars().rev().collect()).collect());
+
     input.lines().for_each(|l| {
-        if let Some(value) = find_first_and_last(l, true) {
+        if let Some(value) = find_first_and_last(l, &digits, &reversed_digits) {
             result += value
         };
     });
@@ -89,4 +94,7 @@ mod tests {
     }
 }
 
-// First solution pt1: 16.7ms & pt2: 17.5ms
+// First solution
+// pt1: 16.7ms & pt2: 17.5ms
+// Second solution: move creation of Vec<String> for pt2 out of loop.
+// pt1: 4.8ms & pt2: 7.8ms
