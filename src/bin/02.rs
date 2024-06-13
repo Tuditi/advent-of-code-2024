@@ -1,60 +1,59 @@
 advent_of_code::solution!(2);
 use std::collections::HashMap;
 
-pub fn part_one(input: &str) -> Option<u32> {
-    let mut constraints: HashMap<String, u32> = HashMap::new();
+const COLORS: [&str; 3] = ["green", "red", "blue"];
 
-    constraints.insert(String::from("red"), 12);
-    constraints.insert(String::from("green"), 13);
-    constraints.insert(String::from("blue"), 14);
+pub fn part_one(input: &str) -> Option<u32> {
+    let mut constraints: HashMap<&str, u32> = HashMap::new();
+
+    constraints.insert(COLORS[0], 12);
+    constraints.insert(COLORS[1], 13);
+    constraints.insert(COLORS[2], 14);
 
     let mut result = 0;
     let mut counter = 0;
-    'game: for l in input.lines() {
+    'game: for round in input.lines() {
         counter += 1;
-
-        let start = l.find(':').unwrap();
-        let round = &l[start + 1..];
-
-        for turn in round.split(';') {
-            for colors in turn.split(',') {
-                let mut values = colors.split_whitespace();
-                let amount: u32 = values.next().unwrap().parse().unwrap();
-                let color = values.next().unwrap();
-
-                if &amount > constraints.get(color).unwrap() {
-                    continue 'game;
-                }
+        let parsed_round = parse_round(&round);
+        for color in COLORS {
+            if parsed_round.get(color) > constraints.get(color) {
+                continue 'game;
             }
         }
+
         result += counter;
     }
     Some(result)
 }
 
+fn parse_round(round: &str) -> HashMap<&str, u32> {
+    let start = round.find(':').unwrap();
+    let round = &round[start + 1..];
+    let mut parsed_map: HashMap<&str, u32> = HashMap::new();
+    for turn in round.split(';') {
+        for colors in turn.split(',') {
+            let mut values = colors.split_whitespace();
+            let amount: u32 = values.next().unwrap().parse().unwrap();
+            let color = values.next().unwrap();
+
+            let current_value = parsed_map.get(color).unwrap_or(&0);
+            if &amount > current_value {
+                parsed_map.insert(color, amount);
+            }
+        }
+    }
+    parsed_map
+}
+
 pub fn part_two(input: &str) -> Option<u32> {
     let mut result = 0;
 
-    for l in input.lines() {
-        let mut fewest_numbers: HashMap<&str, u32> = HashMap::new();
-        let start = l.find(':').unwrap();
-        let round = &l[start + 1..];
+    for round in input.lines() {
+        let parsed_round = parse_round(round);
 
-        for turn in round.split(';') {
-            for colors in turn.split(',') {
-                let mut values = colors.split_whitespace();
-                let amount: u32 = values.next().unwrap().parse().unwrap();
-                let color = values.next().unwrap();
-
-                let minimal_number = fewest_numbers.get(color).unwrap_or(&0);
-                if &amount > minimal_number {
-                    fewest_numbers.insert(&color, amount);
-                }
-            }
-        }
         let mut power = 1;
-        ["green", "red", "blue"].iter().for_each(|color| {
-            let amount = fewest_numbers.get(color).unwrap_or(&0);
+        COLORS.iter().for_each(|color| {
+            let amount = parsed_round.get(color).unwrap_or(&0);
             power *= amount;
         });
         result += power;
@@ -80,4 +79,5 @@ mod tests {
 }
 
 // First try: 2.5ms
-// Second try: 3.7ms
+// Second try: pt1: 3.7ms pt2: 7.7ms
+// Third try: pt1: 2.4ms pt2: 2.3ms
