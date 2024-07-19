@@ -7,52 +7,47 @@ struct MapLine {
     range: i64,
 }
 
-fn parse_line(line: &str) -> Vec<i64> {
+type SeedMap = Vec<Vec<MapLine>>;
+
+fn parse_line<'a>(line: &'a str) -> impl Iterator<Item = i64> + 'a {
     line.split(' ')
         .map(|x| x.parse::<i64>())
         .filter(|x| x.is_ok())
         .map(|x| x.unwrap())
-        .collect()
 }
 
-fn parse_input(input: &str) -> (Vec<i64>, Vec<Vec<MapLine>>) {
-    let mut seeds: Vec<i64> = vec![];
-    let mut maps: Vec<Vec<MapLine>> = vec![vec![]];
+fn parse_input<'a>(input: &'a str) -> (impl Iterator<Item = i64> + 'a, SeedMap) {
+    let mut maps: SeedMap = vec![vec![]];
     let mut map_index = 0;
-    input
-        .lines()
-        .filter(|l| !l.is_empty())
-        .enumerate()
-        .for_each(|(i, l)| {
-            // println!("Next line {l}");
-            if i == 0 {
-                seeds = parse_line(&l)
-            } else {
-                let next_line = parse_line(&l);
+    let mut iterator = input.lines().filter(|l| !l.is_empty());
 
-                match &next_line.len() {
-                    0 => {
-                        map_index += 1;
-                        maps.push(vec![]);
-                    }
-                    3 => {
-                        let map_line = MapLine {
-                            destination: next_line[0],
-                            source: next_line[1],
-                            range: next_line[2],
-                        };
-                        maps[map_index].push(map_line);
-                    }
-                    _ => panic!("Unrecognized line {:?}", next_line),
-                }
+    let first_line = &iterator.next().unwrap();
+    let seeds = parse_line(&first_line);
+
+    iterator.for_each(|l| {
+        let next_line: Vec<i64> = parse_line(&l).collect();
+        match &next_line.len() {
+            0 => {
+                map_index += 1;
+                maps.push(vec![]);
             }
-        });
+            3 => {
+                let map_line = MapLine {
+                    destination: next_line[0],
+                    source: next_line[1],
+                    range: next_line[2],
+                };
+                maps[map_index].push(map_line);
+            }
+            _ => panic!("Unrecognized line {:?}", next_line),
+        }
+    });
     maps.remove(0);
     (seeds, maps)
 }
 
-fn go_through_maps(maps: &Vec<Vec<MapLine>>, mut input: i64) -> u32 {
-    println!("NEW INPUT {input}");
+fn go_through_maps(maps: &SeedMap, mut input: i64) -> u32 {
+    // println!("NEW INPUT {input}");
     // println!("");
     maps.iter().for_each(|current_map| {
         // println!("Input: {input}, Current Map: {:?}", current_map);
@@ -76,11 +71,9 @@ fn transform(map: &Vec<MapLine>, input: &i64) -> i64 {
     *input
 }
 
-fn calculate_seeds_from_ranges(ranges: Vec<i64>) -> Vec<i64> {
+fn calculate_seeds_from_ranges(ranges: Vec<i64>, maps: SeedMap) -> u32 {
     let length = ranges.len();
-    let total_size = ranges.iter().step_by(2).map(|&range| range as usize).sum();
-    let mut seeds = Vec::with_capacity(total_size);
-    println!("start {length}");
+    let mut min_location = u32::MAX;
     for i in 0..length / 2 {
         println!("{i}");
         let start_seed = ranges[2 * i];
@@ -89,30 +82,33 @@ fn calculate_seeds_from_ranges(ranges: Vec<i64>) -> Vec<i64> {
         let range = ranges[2 * i + 1];
         // let next_seeds = Vec::with_capacity(range);
         println!("b");
-        seeds.extend(start_seed..start_seed + range);
-        println!("c");
+        let seeds = start_seed..start_seed + range;
+
+        let potential_location = calculate_closest_location(seeds, &maps).unwrap();
+        // println! {"Potential Location: {potential_location}"}
+        if potential_location < min_location {
+            min_location = potential_location
+        }
     }
-    seeds
+    min_location
 }
 
-fn calculate_closest_location(seeds: Vec<i64>, maps: Vec<Vec<MapLine>>) -> Option<u32> {
-    let locations = seeds.iter().map(|seed| go_through_maps(&maps, *seed));
+fn calculate_closest_location(seeds: impl Iterator<Item = i64>, maps: &SeedMap) -> Option<u32> {
+    let locations = seeds.map(|seed| go_through_maps(&maps, seed));
     let closest_location = locations.min();
     closest_location
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
     let (seeds, maps) = parse_input(input);
-    calculate_closest_location(seeds, maps)
+    calculate_closest_location(seeds, &maps)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    println!("Parse input");
+    // println!("Parse input");
     let (seed_ranges, maps) = parse_input(input);
-    println!("Seed_ranges");
-    let seeds = calculate_seeds_from_ranges(seed_ranges);
-    println!("Seeds: {:?}", seeds);
-    calculate_closest_location(seeds, maps)
+    // println!("Seed_ranges");
+    Some(calculate_seeds_from_ranges(seed_ranges.collect(), maps))
 }
 
 #[cfg(test)]
