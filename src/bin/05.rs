@@ -1,5 +1,7 @@
 advent_of_code::solution!(5);
 
+use rayon::prelude::*;
+
 #[derive(Debug)]
 struct MapLine {
     destination: i64,
@@ -9,19 +11,22 @@ struct MapLine {
 
 type SeedMap = Vec<Vec<MapLine>>;
 
-fn parse_line<'a>(line: &'a str) -> impl Iterator<Item = i64> + 'a {
-    line.split(' ')
+fn parse_line<'a>(line: &'a str) -> impl rayon::iter::ParallelIterator<Item = i64> + 'a {
+    let maps: Vec<&str> = line.split(' ').collect();
+    maps.into_par_iter()
         .map(|x| x.parse::<i64>())
         .filter(|x| x.is_ok())
         .map(|x| x.unwrap())
 }
 
-fn parse_input<'a>(input: &'a str) -> (impl Iterator<Item = i64> + 'a, SeedMap) {
+fn parse_input<'a>(
+    input: &'a str,
+) -> (impl rayon::iter::ParallelIterator<Item = i64> + 'a, SeedMap) {
     let mut maps: SeedMap = vec![vec![]];
     let mut map_index = 0;
-    let mut iterator = input.lines().filter(|l| !l.is_empty());
+    let (first_line, next_lines) = input.split_once('\n').unwrap();
+    let iterator = next_lines.lines().filter(|l| !l.is_empty());
 
-    let first_line = &iterator.next().unwrap();
     let seeds = parse_line(&first_line);
 
     iterator.for_each(|l| {
@@ -47,10 +52,7 @@ fn parse_input<'a>(input: &'a str) -> (impl Iterator<Item = i64> + 'a, SeedMap) 
 }
 
 fn go_through_maps(maps: &SeedMap, mut input: i64) -> u32 {
-    // println!("NEW INPUT {input}");
-    // println!("");
     maps.iter().for_each(|current_map| {
-        // println!("Input: {input}, Current Map: {:?}", current_map);
         input = transform(current_map, &input);
     });
     input as u32
@@ -75,17 +77,11 @@ fn calculate_seeds_from_ranges(ranges: Vec<i64>, maps: SeedMap) -> u32 {
     let length = ranges.len();
     let mut min_location = u32::MAX;
     for i in 0..length / 2 {
-        println!("{i}");
         let start_seed = ranges[2 * i];
-        println!("a");
-
         let range = ranges[2 * i + 1];
-        // let next_seeds = Vec::with_capacity(range);
-        println!("b");
-        let seeds = start_seed..start_seed + range;
+        let seeds = (start_seed..start_seed + range).into_par_iter();
 
         let potential_location = calculate_closest_location(seeds, &maps).unwrap();
-        // println! {"Potential Location: {potential_location}"}
         if potential_location < min_location {
             min_location = potential_location
         }
@@ -93,7 +89,10 @@ fn calculate_seeds_from_ranges(ranges: Vec<i64>, maps: SeedMap) -> u32 {
     min_location
 }
 
-fn calculate_closest_location(seeds: impl Iterator<Item = i64>, maps: &SeedMap) -> Option<u32> {
+fn calculate_closest_location(
+    seeds: impl rayon::iter::ParallelIterator<Item = i64>,
+    maps: &SeedMap,
+) -> Option<u32> {
     let locations = seeds.map(|seed| go_through_maps(&maps, seed));
     let closest_location = locations.min();
     closest_location
@@ -105,9 +104,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    // println!("Parse input");
     let (seed_ranges, maps) = parse_input(input);
-    // println!("Seed_ranges");
     Some(calculate_seeds_from_ranges(seed_ranges.collect(), maps))
 }
 
