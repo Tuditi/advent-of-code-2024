@@ -1,6 +1,9 @@
 advent_of_code::solution!(5);
 
 use rayon::prelude::*;
+use utils::parsers::*;
+
+pub mod utils;
 
 #[derive(Debug)]
 struct MapLine {
@@ -11,14 +14,6 @@ struct MapLine {
 
 type SeedMap = Vec<Vec<MapLine>>;
 
-fn parse_line<'a>(line: &'a str) -> impl rayon::iter::ParallelIterator<Item = i64> + 'a {
-    let maps: Vec<&str> = line.split(' ').collect();
-    maps.into_par_iter()
-        .map(|x| x.parse::<i64>())
-        .filter(|x| x.is_ok())
-        .map(|x| x.unwrap())
-}
-
 fn parse_input<'a>(
     input: &'a str,
 ) -> (impl rayon::iter::ParallelIterator<Item = i64> + 'a, SeedMap) {
@@ -27,10 +22,10 @@ fn parse_input<'a>(
     let (first_line, next_lines) = input.split_once('\n').unwrap();
     let iterator = next_lines.lines().filter(|l| !l.is_empty());
 
-    let seeds = parse_line(&first_line);
+    let seeds = parsers::parse_line(&first_line);
 
     iterator.for_each(|l| {
-        let next_line: Vec<i64> = parse_line(&l).collect();
+        let next_line: Vec<i64> = parsers::parse_line(&l).collect();
         match &next_line.len() {
             0 => {
                 map_index += 1;
@@ -125,4 +120,6 @@ mod tests {
     }
 }
 
-// Part 1: 454.1µs
+// #1: 454.1µs
+// #2  pt1: 354µs & pt2: 3618.3s
+// #3: Use data parallelisation with Rayon: pt1 9.4 ms, pt2: 701s
