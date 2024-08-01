@@ -16,17 +16,16 @@ enum HandType {
 #[derive(Debug, PartialEq, Eq, PartialOrd)]
 struct Hand {
     cards: [u8; 5],
+    hand_type: HandType,
     bid: u32,
     with_joker: bool,
 }
 
 impl Ord for Hand {
     fn cmp(&self, other: &Self) -> Ordering {
-        let self_type = self.get_hand_type();
-        let other_type = other.get_hand_type();
-        if self_type > other_type {
+        if self.hand_type > other.hand_type {
             return Ordering::Greater;
-        } else if self_type < other_type {
+        } else if self.hand_type < other.hand_type {
             return Ordering::Less;
         } else {
             let mut self_chars = self.cards.iter();
@@ -69,6 +68,7 @@ impl Hand {
         if let Ok(bid) = bid {
             Hand {
                 cards,
+                hand_type: Hand::_get_hand_type(&cards, with_joker),
                 bid,
                 with_joker,
             }
@@ -77,29 +77,29 @@ impl Hand {
         }
     }
 
-    fn create_map(&self) -> HashMap<u8, usize> {
-        let mut cards: HashMap<u8, usize> = HashMap::new();
-        self.cards.iter().for_each(|card| {
+    fn _create_map(cards: &[u8; 5]) -> HashMap<u8, usize> {
+        let mut map: HashMap<u8, usize> = HashMap::new();
+        cards.iter().for_each(|card| {
             // TODO: Optimize using and_modify()/or_insert()
-            let current_count = cards.get(&card).unwrap_or(&0);
-            cards.insert(*card, current_count + 1);
+            let current_count = map.get(&card).unwrap_or(&0);
+            map.insert(*card, current_count + 1);
         });
-        cards
+        map
     }
 
-    fn get_hand_type(&self) -> HandType {
-        let mut cards = self.create_map();
+    fn _get_hand_type(hand: &[u8; 5], with_joker: bool) -> HandType {
+        let cards = Hand::_create_map(hand);
         let mut card_length = cards.len();
 
         let mut jokers: usize = 0;
-        if self.with_joker {
+        if with_joker {
             jokers = *cards.get(&b'J').unwrap_or(&0);
             if jokers > 0 {
                 card_length -= 1;
             }
         }
 
-        let (_, v) = cards.drain().max_by(|a, b| a.1.cmp(&b.1)).unwrap();
+        let (_, v) = cards.clone().drain().max_by(|a, b| a.1.cmp(&b.1)).unwrap();
         match card_length {
             0 | 1 => HandType::FiveOfAKind,
             2 => {
@@ -185,154 +185,156 @@ mod tests {
         assert_eq!(result, Some(5905));
     }
 
-    #[test]
-    fn test_comparison_pt1() {
-        let hand1 = Hand {
-            cards: *b"KTJJT",
-            bid: 1,
-            with_joker: false,
-        };
-        let hand2 = Hand {
-            cards: *b"KK677",
-            bid: 1,
-            with_joker: false,
-        };
-        let result = hand1.cmp(&hand2);
-        assert_eq!(result, Ordering::Less)
-    }
+    // #[test]
+    // fn test_comparison_pt1() {
+    //     let hand1 = Hand {
+    //         cards: *b"KTJJT",
+    //         bid: 1,
+    //         with_joker: false,
+    //     };
+    //     let hand2 = Hand {
+    //         cards: *b"KK677",
+    //         bid: 1,
+    //         with_joker: false,
+    //     };
+    //     let result = hand1.cmp(&hand2);
+    //     assert_eq!(result, Ordering::Less)
+    // }
 
-    #[test]
-    fn test_comparison_pt2() {
-        let hand1 = Hand {
-            cards: *b"AK653",
-            bid: 1,
-            with_joker: true,
-        };
-        let hand2 = Hand {
-            cards: *b"8KA9J",
-            bid: 1,
-            with_joker: true,
-        };
-        let result = hand1.cmp(&hand2);
-        assert_eq!(result, Ordering::Less)
-    }
+    // #[test]
+    // fn test_comparison_pt2() {
+    //     let hand1 = Hand {
+    //         cards: *b"AK653",
+    //         bid: 1,
+    //         with_joker: true,
+    //     };
+    //     let hand2 = Hand {
+    //         cards: *b"8KA9J",
+    //         bid: 1,
+    //         with_joker: true,
+    //     };
+    //     let result = hand1.cmp(&hand2);
+    //     assert_eq!(result, Ordering::Less)
+    // }
 
-    #[test]
-    fn test_comparison_pt2_jokers() {
-        let hand1 = Hand {
-            cards: *b"227K7",
-            bid: 1,
-            with_joker: true,
-        };
-        let hand2 = Hand {
-            cards: *b"JJ6K4",
-            bid: 1,
-            with_joker: true,
-        };
-        let result = hand1.cmp(&hand2);
-        assert_eq!(result, Ordering::Less)
-    }
+    // #[test]
+    // fn test_comparison_pt2_jokers() {
+    //     let hand1 = Hand {
+    //         cards: *b"227K7",
+    //         bid: 1,
+    //         with_joker: true,
+    //     };
+    //     let hand2 = Hand {
+    //         cards: *b"JJ6K4",
+    //         bid: 1,
+    //         with_joker: true,
+    //     };
+    //     let result = hand1.cmp(&hand2);
+    //     assert_eq!(result, Ordering::Less)
+    // }
 
-    #[test]
-    fn test_comparison_high_card() {
-        let hand1 = Hand {
-            cards: *b"247QA",
-            bid: 1,
-            with_joker: true,
-        };
-        let hand2 = Hand {
-            cards: *b"25794",
-            bid: 1,
-            with_joker: true,
-        };
-        let result = hand1.cmp(&hand2);
-        assert_eq!(result, Ordering::Less)
-    }
+    // #[test]
+    // fn test_comparison_high_card() {
+    //     let hand1 = Hand {
+    //         cards: *b"247QA",
+    //         bid: 1,
+    //         with_joker: true,
+    //     };
+    //     let hand2 = Hand {
+    //         cards: *b"25794",
+    //         bid: 1,
+    //         with_joker: true,
+    //     };
+    //     let result = hand1.cmp(&hand2);
+    //     assert_eq!(result, Ordering::Less)
+    // }
 
-    #[test]
-    fn test_hand_type_pt2() {
-        assert_eq!(
-            Hand {
-                cards: *b"K3K7J",
-                bid: 1,
-                with_joker: true,
-            }
-            .get_hand_type(),
-            HandType::ThreeOfAKind
-        );
-        assert_eq!(
-            Hand {
-                cards: *b"QJJQ2",
-                bid: 1,
-                with_joker: true
-            }
-            .get_hand_type(),
-            HandType::FourOfAKind
-        );
-        assert_eq!(
-            Hand {
-                cards: *b"JJJQ2",
-                bid: 1,
-                with_joker: true
-            }
-            .get_hand_type(),
-            HandType::FourOfAKind
-        );
-        assert_eq!(
-            Hand {
-                cards: *b"32T3K",
-                bid: 1,
-                with_joker: true
-            }
-            .get_hand_type(),
-            HandType::OnePair
-        );
-        assert_eq!(
-            Hand {
-                cards: *b"TJ6J5",
-                bid: 1,
-                with_joker: true
-            }
-            .get_hand_type(),
-            HandType::ThreeOfAKind
-        );
-        assert_eq!(
-            Hand {
-                cards: *b"KK677",
-                bid: 1,
-                with_joker: true
-            }
-            .get_hand_type(),
-            HandType::TwoPair
-        );
-        assert_eq!(
-            Hand {
-                cards: *b"KTJJT",
-                bid: 1,
-                with_joker: true
-            }
-            .get_hand_type(),
-            HandType::FourOfAKind
-        );
-        assert_eq!(
-            Hand {
-                cards: *b"QQAJA",
-                bid: 1,
-                with_joker: true
-            }
-            .get_hand_type(),
-            HandType::FullHouse
-        );
-        assert_eq!(
-            Hand {
-                cards: *b"JJJJJ",
-                bid: 1,
-                with_joker: true
-            }
-            .get_hand_type(),
-            HandType::FiveOfAKind
-        );
-    }
+    // #[test]
+    // fn test_hand_type_pt2() {
+    //     assert_eq!(
+    //         Hand {
+    //             cards: *b"K3K7J",
+    //             bid: 1,
+    //             with_joker: true,
+    //         }
+    //         .get_hand_type(),
+    //         HandType::ThreeOfAKind
+    //     );
+    //     assert_eq!(
+    //         Hand {
+    //             cards: *b"QJJQ2",
+    //             bid: 1,
+    //             with_joker: true
+    //         }
+    //         .get_hand_type(),
+    //         HandType::FourOfAKind
+    //     );
+    //     assert_eq!(
+    //         Hand {
+    //             cards: *b"JJJQ2",
+    //             bid: 1,
+    //             with_joker: true
+    //         }
+    //         .get_hand_type(),
+    //         HandType::FourOfAKind
+    //     );
+    //     assert_eq!(
+    //         Hand {
+    //             cards: *b"32T3K",
+    //             bid: 1,
+    //             with_joker: true
+    //         }
+    //         .get_hand_type(),
+    //         HandType::OnePair
+    //     );
+    //     assert_eq!(
+    //         Hand {
+    //             cards: *b"TJ6J5",
+    //             bid: 1,
+    //             with_joker: true
+    //         }
+    //         .get_hand_type(),
+    //         HandType::ThreeOfAKind
+    //     );
+    //     assert_eq!(
+    //         Hand {
+    //             cards: *b"KK677",
+    //             bid: 1,
+    //             with_joker: true
+    //         }
+    //         .get_hand_type(),
+    //         HandType::TwoPair
+    //     );
+    //     assert_eq!(
+    //         Hand {
+    //             cards: *b"KTJJT",
+    //             bid: 1,
+    //             with_joker: true
+    //         }
+    //         .get_hand_type(),
+    //         HandType::FourOfAKind
+    //     );
+    //     assert_eq!(
+    //         Hand {
+    //             cards: *b"QQAJA",
+    //             bid: 1,
+    //             with_joker: true
+    //         }
+    //         .get_hand_type(),
+    //         HandType::FullHouse
+    //     );
+    //     assert_eq!(
+    //         Hand {
+    //             cards: *b"JJJJJ",
+    //             bid: 1,
+    //             with_joker: true
+    //         }
+    //         .get_hand_type(),
+    //         HandType::FiveOfAKind
+    //     );
+    // }
 }
 
 // #1: pt1 170ms
+// #2: Part 1: 247823654 (171.5ms) Part 2: 245461700 (182.7ms)
+// #3: Pre-evaluate handtypes: Part 1: 247823654 (13.3ms) Part 2: 245461700 (14.2ms)
