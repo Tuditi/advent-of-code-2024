@@ -18,40 +18,6 @@ struct Hand {
     cards: [u8; 5],
     hand_type: HandType,
     bid: u32,
-    with_joker: bool,
-}
-
-impl Ord for Hand {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.hand_type > other.hand_type {
-            return Ordering::Greater;
-        } else if self.hand_type < other.hand_type {
-            return Ordering::Less;
-        } else {
-            let mut self_chars = self.cards.iter();
-            let mut other_chars = other.cards.iter();
-
-            for _ in 0..5 {
-                let self_next = self_chars.next();
-                let other_next = other_chars.next();
-
-                if let Some(self_char) = self_next {
-                    if other_next.is_none() {
-                        panic!("Unequal hands!")
-                    }
-                    let self_char = map_to_ascending_utf8_char(*self_char, self.with_joker);
-                    let next_char =
-                        map_to_ascending_utf8_char(*other_next.unwrap(), self.with_joker);
-                    if self_char > next_char {
-                        return Ordering::Greater;
-                    } else if self_char < next_char {
-                        return Ordering::Less;
-                    }
-                }
-            }
-            unreachable!()
-        }
-    }
 }
 
 impl Hand {
@@ -70,19 +36,48 @@ impl Hand {
                 cards,
                 hand_type: Hand::_get_hand_type(&cards, with_joker),
                 bid,
-                with_joker,
             }
         } else {
             panic!("{:?}", bid)
         }
     }
 
+    fn cmp(&self, other: &Self, with_joker: bool) -> Ordering {
+        if self.hand_type > other.hand_type {
+            return Ordering::Greater;
+        } else if self.hand_type < other.hand_type {
+            return Ordering::Less;
+        } else {
+            let mut self_chars = self.cards.iter();
+            let mut other_chars = other.cards.iter();
+
+            for _ in 0..5 {
+                let self_next = self_chars.next();
+                let other_next = other_chars.next();
+
+                if let Some(self_char) = self_next {
+                    if other_next.is_none() {
+                        panic!("Unequal hands!")
+                    }
+                    let self_char = map_to_ascending_utf8_char(*self_char, with_joker);
+                    let next_char = map_to_ascending_utf8_char(*other_next.unwrap(), with_joker);
+                    if self_char > next_char {
+                        return Ordering::Greater;
+                    } else if self_char < next_char {
+                        return Ordering::Less;
+                    }
+                }
+            }
+            unreachable!()
+        }
+    }
+
     fn _create_map(cards: &[u8; 5]) -> HashMap<u8, usize> {
         let mut map: HashMap<u8, usize> = HashMap::new();
         cards.iter().for_each(|card| {
-            // TODO: Optimize using and_modify()/or_insert()
-            let current_count = map.get(&card).unwrap_or(&0);
-            map.insert(*card, current_count + 1);
+            map.entry(*card)
+                .and_modify(|count| *count += 1)
+                .or_insert(1);
         });
         map
     }
@@ -147,7 +142,7 @@ fn parse_input(input: &str, with_joker: bool) -> Vec<Hand> {
     input.lines().for_each(|l| {
         hands.push(Hand::new(l, with_joker));
     });
-    hands.sort_by(|a, b| a.cmp(&b));
+    hands.sort_by(|a, b| Hand::cmp(&a, &b, with_joker));
     hands
 }
 
