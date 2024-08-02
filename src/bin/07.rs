@@ -180,154 +180,37 @@ mod tests {
         assert_eq!(result, Some(5905));
     }
 
-    // #[test]
-    // fn test_comparison_pt1() {
-    //     let hand1 = Hand {
-    //         cards: *b"KTJJT",
-    //         bid: 1,
-    //         with_joker: false,
-    //     };
-    //     let hand2 = Hand {
-    //         cards: *b"KK677",
-    //         bid: 1,
-    //         with_joker: false,
-    //     };
-    //     let result = hand1.cmp(&hand2);
-    //     assert_eq!(result, Ordering::Less)
-    // }
+    #[test]
+    fn test_comparison_pt1() {
+        let hand1 = Hand::new("KTJJT 1", false);
+        let hand2 = Hand::new("KK677 1", false);
+        let result = Hand::cmp(&hand1, &hand2, false);
+        assert_eq!(result, Ordering::Less)
+    }
 
-    // #[test]
-    // fn test_comparison_pt2() {
-    //     let hand1 = Hand {
-    //         cards: *b"AK653",
-    //         bid: 1,
-    //         with_joker: true,
-    //     };
-    //     let hand2 = Hand {
-    //         cards: *b"8KA9J",
-    //         bid: 1,
-    //         with_joker: true,
-    //     };
-    //     let result = hand1.cmp(&hand2);
-    //     assert_eq!(result, Ordering::Less)
-    // }
+    #[test]
+    fn test_comparison_pt2() {
+        let hand1 = Hand::new("AK653 1", true);
+        let hand2 = Hand::new("8KA9J 1", true);
+        let result = Hand::cmp(&hand1, &hand2, true);
+        assert_eq!(result, Ordering::Less)
+    }
 
-    // #[test]
-    // fn test_comparison_pt2_jokers() {
-    //     let hand1 = Hand {
-    //         cards: *b"227K7",
-    //         bid: 1,
-    //         with_joker: true,
-    //     };
-    //     let hand2 = Hand {
-    //         cards: *b"JJ6K4",
-    //         bid: 1,
-    //         with_joker: true,
-    //     };
-    //     let result = hand1.cmp(&hand2);
-    //     assert_eq!(result, Ordering::Less)
-    // }
+    #[test]
+    fn test_comparison_pt2_jokers() {
+        let hand1 = Hand::new("227K7 1", true);
+        let hand2 = Hand::new("JJ6K4 1", true);
+        let result = Hand::cmp(&hand1, &hand2, true);
+        assert_eq!(result, Ordering::Less)
+    }
 
-    // #[test]
-    // fn test_comparison_high_card() {
-    //     let hand1 = Hand {
-    //         cards: *b"247QA",
-    //         bid: 1,
-    //         with_joker: true,
-    //     };
-    //     let hand2 = Hand {
-    //         cards: *b"25794",
-    //         bid: 1,
-    //         with_joker: true,
-    //     };
-    //     let result = hand1.cmp(&hand2);
-    //     assert_eq!(result, Ordering::Less)
-    // }
-
-    // #[test]
-    // fn test_hand_type_pt2() {
-    //     assert_eq!(
-    //         Hand {
-    //             cards: *b"K3K7J",
-    //             bid: 1,
-    //             with_joker: true,
-    //         }
-    //         .get_hand_type(),
-    //         HandType::ThreeOfAKind
-    //     );
-    //     assert_eq!(
-    //         Hand {
-    //             cards: *b"QJJQ2",
-    //             bid: 1,
-    //             with_joker: true
-    //         }
-    //         .get_hand_type(),
-    //         HandType::FourOfAKind
-    //     );
-    //     assert_eq!(
-    //         Hand {
-    //             cards: *b"JJJQ2",
-    //             bid: 1,
-    //             with_joker: true
-    //         }
-    //         .get_hand_type(),
-    //         HandType::FourOfAKind
-    //     );
-    //     assert_eq!(
-    //         Hand {
-    //             cards: *b"32T3K",
-    //             bid: 1,
-    //             with_joker: true
-    //         }
-    //         .get_hand_type(),
-    //         HandType::OnePair
-    //     );
-    //     assert_eq!(
-    //         Hand {
-    //             cards: *b"TJ6J5",
-    //             bid: 1,
-    //             with_joker: true
-    //         }
-    //         .get_hand_type(),
-    //         HandType::ThreeOfAKind
-    //     );
-    //     assert_eq!(
-    //         Hand {
-    //             cards: *b"KK677",
-    //             bid: 1,
-    //             with_joker: true
-    //         }
-    //         .get_hand_type(),
-    //         HandType::TwoPair
-    //     );
-    //     assert_eq!(
-    //         Hand {
-    //             cards: *b"KTJJT",
-    //             bid: 1,
-    //             with_joker: true
-    //         }
-    //         .get_hand_type(),
-    //         HandType::FourOfAKind
-    //     );
-    //     assert_eq!(
-    //         Hand {
-    //             cards: *b"QQAJA",
-    //             bid: 1,
-    //             with_joker: true
-    //         }
-    //         .get_hand_type(),
-    //         HandType::FullHouse
-    //     );
-    //     assert_eq!(
-    //         Hand {
-    //             cards: *b"JJJJJ",
-    //             bid: 1,
-    //             with_joker: true
-    //         }
-    //         .get_hand_type(),
-    //         HandType::FiveOfAKind
-    //     );
-    // }
+    #[test]
+    fn test_comparison_high_card() {
+        let hand1 = Hand::new("247QA 1", true);
+        let hand2 = Hand::new("25794 1", true);
+        let result = Hand::cmp(&hand1, &hand2, true);
+        assert_eq!(result, Ordering::Less)
+    }
 }
 
 // #1: pt1 170ms
