@@ -60,52 +60,29 @@ fn go_through_desert(
 fn ghost_through_desert(
     instructions: impl Iterator<Item = char> + std::clone::Clone,
     map: HashMap<&str, Direction>,
-) -> u64 {
-    let mut current_positions: Vec<&str> = map
+) -> Option<u32> {
+    let mut start_positions: Vec<&str> = map
         .keys()
         .filter(|pos| (pos).ends_with('A'))
         .cloned()
         .collect();
     let mut count = 0;
-    let mut iteration_count: Vec<(&str, u64)> = vec![];
-    let mut prev_iteration_count: Vec<(&str, u64)> = vec![];
-    for c in instructions.cycle() {
-        if current_positions.is_empty() {
-            break;
-        }
+    // let mut iteration_count: Vec<(&str, u64)> = vec![];
+    // let mut prev_iteration_count: Vec<(&str, u64)> = vec![];
+    'instruction: for c in instructions.cycle() {
         count += 1;
-
-        // println!("{count}");
-        println!("Before: {:?}", current_positions);
-        current_positions.iter_mut().for_each(|ghost_pos| {
-            let directions = map.get(ghost_pos).unwrap();
-            *ghost_pos = get_next_pos(c, directions);
-
-            if ghost_pos.ends_with('Z') {
-                iteration_count.push((ghost_pos, count));
-            }
+        start_positions.iter_mut().for_each(|pos| {
+            let directions = map.get(pos).unwrap();
+            *pos = get_next_pos(c, directions);
         });
-        println!("After: {:?}", current_positions);
 
-        if prev_iteration_count != iteration_count {
-            println!("{:?}", iteration_count);
-            iteration_count.iter().for_each(|i| {
-                if let Ok(el) = current_positions.binary_search(&i.0) {
-                    current_positions.remove(el);
-                }
-            });
-            prev_iteration_count = iteration_count.clone();
+        if start_positions.iter().any(|el| !el.ends_with('Z')) {
+            continue 'instruction;
+        } else {
+            return Some(count);
         }
-        // panic!("Oei");
-        // println!("Test position: {:?}", positions);
-
-        // println!("Cur position: {:?}", current_pos);
     }
-    iteration_count
-        .into_iter()
-        .reduce(|acc, el| (acc.0, lcm(acc.1, el.1)))
-        .unwrap()
-        .1
+    unreachable!()
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -113,9 +90,9 @@ pub fn part_one(input: &str) -> Option<u32> {
     go_through_desert("AAA", instructions, map)
 }
 
-pub fn part_two(input: &str) -> Option<u64> {
+pub fn part_two(input: &str) -> Option<u32> {
     let (instructions, map) = parse_input(input);
-    Some(ghost_through_desert(instructions, map))
+    ghost_through_desert(instructions, map)
 }
 
 #[cfg(test)]
