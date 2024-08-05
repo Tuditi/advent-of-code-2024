@@ -1,7 +1,5 @@
 use num::integer::lcm;
-use rayon::prelude::*;
 use std::collections::HashMap;
-use std::time::Instant;
 advent_of_code::solution!(8);
 
 type Direction<'a> = Vec<&'a str>;
@@ -60,29 +58,45 @@ fn go_through_desert(
 fn ghost_through_desert(
     instructions: impl Iterator<Item = char> + std::clone::Clone,
     map: HashMap<&str, Direction>,
-) -> Option<u32> {
-    let mut start_positions: Vec<&str> = map
+) -> Option<u64> {
+    let mut current_positions: Vec<&str> = map
         .keys()
         .filter(|pos| (pos).ends_with('A'))
         .cloned()
         .collect();
     let mut count = 0;
-    // let mut iteration_count: Vec<(&str, u64)> = vec![];
-    // let mut prev_iteration_count: Vec<(&str, u64)> = vec![];
-    'instruction: for c in instructions.cycle() {
+    let mut found_pos: Vec<&str> = vec![];
+    let mut iteration_count: Vec<u64> = vec![];
+    for c in instructions.cycle() {
+        if current_positions.is_empty() {
+            break;
+        }
         count += 1;
-        start_positions.iter_mut().for_each(|pos| {
-            let directions = map.get(pos).unwrap();
-            *pos = get_next_pos(c, directions);
+
+        current_positions.iter_mut().for_each(|ghost_pos| {
+            let directions = map.get(ghost_pos).unwrap();
+            *ghost_pos = get_next_pos(c, directions);
+
+            if ghost_pos.ends_with('Z') {
+                iteration_count.push(count);
+                found_pos.push(ghost_pos);
+            }
         });
 
-        if start_positions.iter().any(|el| !el.ends_with('Z')) {
-            continue 'instruction;
-        } else {
-            return Some(count);
-        }
+        remove_found_pos(&mut found_pos, &mut current_positions)
     }
-    unreachable!()
+    iteration_count.into_iter().reduce(|acc, el| lcm(acc, el))
+}
+
+fn remove_found_pos(found_pos: &mut Vec<&str>, current_positions: &mut Vec<&str>) {
+    if !found_pos.is_empty() {
+        found_pos.into_iter().for_each(|pos| {
+            if let Some(index) = current_positions.iter().position(|p| p == pos) {
+                current_positions.remove(index);
+            }
+        });
+        *found_pos = vec![];
+    }
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -90,7 +104,7 @@ pub fn part_one(input: &str) -> Option<u32> {
     go_through_desert("AAA", instructions, map)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> Option<u64> {
     let (instructions, map) = parse_input(input);
     ghost_through_desert(instructions, map)
 }
@@ -118,3 +132,4 @@ mod tests {
 }
 
 // #1 (24.4ms)
+// #2 Part 1: 14681 (16.0ms) Part 2: 14321394058031 (103.1ms)
