@@ -1,6 +1,6 @@
 advent_of_code::solution!(10);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Position {
     x: usize,
     y: usize,
@@ -186,37 +186,80 @@ fn next_position(previous_pos: &Position, current: &Tile) -> Position {
     }
 }
 
-fn find_loop_length(starting_position: Position, map: TileMap) -> u32 {
-    let mut count = 1;
-    let mut previous_position = starting_position.clone();
+fn find_loop(map: &TileMap) -> Vec<Position> {
+    let starting_position = get_starting_position(map);
+    let mut loop_positions: Vec<Position> = vec![starting_position];
+    let mut previous_position = starting_position;
     let mut current_tile = Tile {
-        position: starting_position.clone(),
-        tile_type: get_starting_char(&starting_position, &map),
+        position: starting_position,
+        tile_type: get_starting_char(&starting_position, map),
     };
     loop {
         let next_position = next_position(&previous_position, &current_tile);
         if next_position == starting_position {
-            return count / 2;
+            return loop_positions;
         }
         previous_position = current_tile.position;
-        let tile_type = get_tile_type(&next_position, &map) as char;
+        let tile_type = get_tile_type(&next_position, map) as char;
         current_tile = Tile {
             position: next_position,
             tile_type,
         };
-        count += 1;
+        loop_positions.push(current_tile.position.clone());
     }
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
     let map = create_map(input);
-    let starting_position = get_starting_position(&map);
-    Some(find_loop_length(starting_position, map))
+    let resulting_loop = find_loop(&map);
+    Some((resulting_loop.len() / 2) as u32)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
     let map = create_map(input);
-    None
+    let width = map[0].len();
+    let closed_loop = find_loop(&map);
+    let mut count = 0;
+    let mut is_inside = false;
+    for y in 0..map.len() {
+        let mut half_cross = b'.';
+        for x in 0..width {
+            let current_position = Position { x, y };
+            let mut tile_type = get_tile_type(&current_position, &map);
+            if tile_type == b'S' {
+                tile_type = get_starting_char(&current_position, &map) as u8;
+            }
+
+            if (tile_type == b'L' || tile_type == b'F') && closed_loop.contains(&current_position) {
+                half_cross = tile_type;
+            }
+
+            if (half_cross == b'L' && tile_type == b'J')
+                || (half_cross == b'F' && tile_type == b'7')
+                    && closed_loop.contains(&current_position)
+            {
+                half_cross = tile_type;
+            }
+
+            if (half_cross == b'L' && tile_type == b'7')
+                || (half_cross == b'F' && tile_type == b'J')
+                    && closed_loop.contains(&current_position)
+            {
+                is_inside = !is_inside;
+                half_cross = tile_type;
+            }
+
+            if (tile_type == b'|') && closed_loop.contains(&current_position) {
+                is_inside = !is_inside;
+            }
+
+            if is_inside && !closed_loop.contains(&current_position) {
+                count += 1;
+            }
+        }
+    }
+
+    Some(count)
 }
 
 #[cfg(test)]
@@ -273,8 +316,26 @@ L--J.L7...LJS7F-7L7.
 ....FJL-7.||.||||...
 ....L---J.LJ.LJLJ...",
         );
+        assert_eq!(result, Some(8));
+    }
+
+    #[test]
+    fn test_part_two_b() {
+        let result = part_two(
+            "FF7FSF7F7F7F7F7F---7
+L|LJ||||||||||||F--J
+FL-7LJLJ||||||LJL-77
+F--JF--7||LJLJ7F7FJ-
+L---JF-JLJ.||-FJLJJ7
+|F|F-JF---7F7-L7L|7|
+|FFJF7L7F-JF7|JL---7
+7-L-JL7||F7|L7F-7F7|
+L.L7LFJ|||||FJL7||LJ
+L7JLJL-JLJLJL--JLJ.L",
+        );
         assert_eq!(result, Some(10));
     }
 }
 
 // #1 Part 1: 6768 (1.9ms)
+// #2 Part 1: 6768 (2.5ms) Part 2: 351 (4.0s)
