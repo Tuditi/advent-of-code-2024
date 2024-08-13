@@ -32,7 +32,10 @@ fn get_expanded_rows_columns(space: &Vec<&str>) -> SpaceExpansion {
         }
         columns_to_be_expanded.push(i);
     }
-
+    println!(
+        "Rows: {:?}, Cols: {:?}",
+        rows_to_be_expanded, columns_to_be_expanded
+    );
     (rows_to_be_expanded, columns_to_be_expanded)
 }
 
@@ -77,9 +80,7 @@ fn create_expanded_position(
             y_expanded += expansion_factor - 1;
         }
     }
-    let position = Position::new(x_expanded, y_expanded);
-    // println!("New position: {:?}", position.get_position());
-    position
+    Position::new(x_expanded, y_expanded)
 }
 
 fn get_expanded_distance(pair: &Vec<Position>) -> usize {
@@ -89,18 +90,18 @@ fn get_expanded_distance(pair: &Vec<Position>) -> usize {
     pair[0].get_distance(pair[1])
 }
 
-fn estimate_galaxy_size(input: &str, expansion_factor: usize) -> Option<u32> {
+fn estimate_galaxy_size(input: &str, expansion_factor: usize) -> Option<u64> {
     let space = create_space(input);
     let expanded_space = get_expanded_rows_columns(&space);
     let pairs = create_pairs(space, &expanded_space, expansion_factor);
     let distance = pairs.fold(0, |acc: usize, el| acc + get_expanded_distance(&el));
-    Some(distance as u32)
+    Some(distance as u64)
 }
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn part_one(input: &str) -> Option<u64> {
     estimate_galaxy_size(input, 2)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> Option<u64> {
     estimate_galaxy_size(input, 1_000_000)
 }
 
@@ -159,8 +160,8 @@ mod tests {
     #[test]
     fn test_part_two_b() {
         let result =
-            estimate_galaxy_size(&advent_of_code::template::read_file("examples", DAY), 10);
-        assert_eq!(result, Some(1030));
+            estimate_galaxy_size(&advent_of_code::template::read_file("examples", DAY), 100);
+        assert_eq!(result, Some(8410));
     }
 }
 // #1 Part 1: 9723824 (75.1ms) Part 2: 1099821032 (69.3ms)
