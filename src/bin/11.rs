@@ -1,51 +1,41 @@
 advent_of_code::solution!(11);
-use std::vec::IntoIter;
+use rayon::*;
+use std::{collections::HashSet, str::Lines, vec::IntoIter};
 
 use advent_of_code::utils::position::position::*;
 use itertools::{Combinations, Itertools};
 
-type SpaceExpansion = (Vec<usize>, Vec<usize>);
+type SpaceExpansion = (HashSet<usize>, HashSet<usize>);
 
-fn create_space(input: &str) -> Vec<&str> {
-    let mut space: Vec<&str> = vec![];
-    input.lines().for_each(|l| {
-        space.push(l);
-    });
-    space
-}
-
-fn get_expanded_rows_columns(space: &Vec<&str>) -> SpaceExpansion {
-    let mut rows_to_be_expanded: Vec<usize> = vec![];
-    'rows: for (i, l) in space.iter().enumerate() {
+fn get_expanded_rows_columns(space: &Lines) -> SpaceExpansion {
+    let mut rows_to_be_expanded: HashSet<usize> = HashSet::new();
+    let size = space.clone().count();
+    'rows: for (i, l) in space.clone().enumerate() {
         if l.chars().any(|c| c == '#') {
             continue 'rows;
         };
-        rows_to_be_expanded.push(i);
+        rows_to_be_expanded.insert(i);
     }
 
-    let mut columns_to_be_expanded: Vec<usize> = vec![];
-    'cols: for i in 0..space[0].len() {
-        for row in space {
+    let mut columns_to_be_expanded: HashSet<usize> = HashSet::new();
+    'cols: for i in 0..size {
+        for row in space.clone() {
             if row.as_bytes()[i] == b'#' {
                 continue 'cols;
             }
         }
-        columns_to_be_expanded.push(i);
+        columns_to_be_expanded.insert(i);
     }
-    println!(
-        "Rows: {:?}, Cols: {:?}",
-        rows_to_be_expanded, columns_to_be_expanded
-    );
     (rows_to_be_expanded, columns_to_be_expanded)
 }
 
 fn create_pairs(
-    space: Vec<&str>,
+    space: Lines,
     expansion: &SpaceExpansion,
     expansion_factor: usize,
 ) -> Combinations<IntoIter<Position>> {
     let mut pairs: Vec<Position> = vec![];
-    space.iter().enumerate().for_each(|(i, row)| {
+    space.enumerate().for_each(|(i, row)| {
         let mut galaxy_row = row
             .match_indices('#')
             .map(|(j, _)| {
@@ -62,24 +52,12 @@ fn create_expanded_position(
     expansion: &SpaceExpansion,
     expansion_factor: usize,
 ) -> Position {
-    // println!("Old position: {:?}", position.get_position());
     let (x, y) = position.get_position();
-    let mut x_expanded = x;
-    let mut y_expanded = y;
+    let x_expanded =
+        x + (expansion.1.iter().filter(|&&col_idx| col_idx < x).count() * (expansion_factor - 1));
+    let y_expanded =
+        y + (expansion.0.iter().filter(|&&row_idx| row_idx < y).count() * (expansion_factor - 1));
 
-    let (rows, columns) = expansion;
-
-    for col_idx in columns {
-        if (0..x).contains(col_idx) {
-            x_expanded += expansion_factor - 1
-        }
-    }
-
-    for row_idx in rows {
-        if (0..y).contains(row_idx) {
-            y_expanded += expansion_factor - 1;
-        }
-    }
     Position::new(x_expanded, y_expanded)
 }
 
@@ -91,7 +69,7 @@ fn get_expanded_distance(pair: &Vec<Position>) -> usize {
 }
 
 fn estimate_galaxy_size(input: &str, expansion_factor: usize) -> Option<u64> {
-    let space = create_space(input);
+    let space = input.lines();
     let expanded_space = get_expanded_rows_columns(&space);
     let pairs = create_pairs(space, &expanded_space, expansion_factor);
     let distance = pairs.fold(0, |acc: usize, el| acc + get_expanded_distance(&el));
@@ -111,7 +89,7 @@ mod tests {
     #[test]
     fn test_expanded_distance() {
         let expansion_factor = 2;
-        let expansion: (Vec<usize>, Vec<usize>) = (vec![3, 7], vec![2, 5, 8]);
+        let expansion: SpaceExpansion = (HashSet::from([3, 7]), HashSet::from([2, 5, 8]));
 
         let point_5 = create_expanded_position(Position::new(1, 5), &expansion, expansion_factor);
         let point_9 = create_expanded_position(Position::new(4, 9), &expansion, expansion_factor);
@@ -136,9 +114,9 @@ mod tests {
     #[test]
     fn test_amount_of_pairs() {
         let binding = advent_of_code::template::read_file("examples", DAY);
-        let space = create_space(&binding);
+        let space = binding.lines();
         let expansion_factor = 1;
-        let expansion: (Vec<usize>, Vec<usize>) = (vec![3, 7], vec![2, 5, 8]);
+        let expansion: SpaceExpansion = (HashSet::from([3, 7]), HashSet::from([2, 5, 8]));
         let pairs = create_pairs(space, &expansion, expansion_factor);
         let result = pairs.collect::<Vec<Vec<Position>>>().len();
         assert_eq!(result, 36)
