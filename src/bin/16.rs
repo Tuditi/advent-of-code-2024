@@ -1,4 +1,5 @@
 advent_of_code::solution!(16);
+use rayon::iter::*;
 
 type CaveMap = Vec<Vec<Space>>;
 
@@ -30,7 +31,7 @@ enum SpaceType {
     LeftDownMirror,
 }
 
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 enum VisitDirection {
     Up,
     Down,
@@ -38,9 +39,21 @@ enum VisitDirection {
     Right,
 }
 
+impl From<VisitDirection> for usize {
+    fn from(direction: VisitDirection) -> Self {
+        match direction {
+            VisitDirection::Up => 0,
+            VisitDirection::Down => 1,
+            VisitDirection::Left => 2,
+            VisitDirection::Right => 3,
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
 struct Space {
     space_type: SpaceType,
-    visited: Vec<VisitDirection>,
+    visited: [bool; 4],
 }
 
 impl SpaceType {
@@ -55,7 +68,7 @@ impl SpaceType {
         } {
             return Some(Space {
                 space_type,
-                visited: vec![],
+                visited: [false; 4],
             });
         }
         None
@@ -149,7 +162,7 @@ impl Navigation for CaveMap {
         let mut count = 0;
         self.iter().for_each(|rows| {
             rows.iter().for_each(|s| {
-                if s.visited.len() > 0 {
+                if s.visited.iter().any(|v| *v) {
                     count += 1;
                 }
             })
@@ -162,10 +175,11 @@ impl Navigation for CaveMap {
             return Err("Beam left the map!");
         }
 
-        if self.get_space(&pos).visited.contains(&direction) {
+        let direction = direction as usize;
+        if self.get_space(&pos).visited[direction] {
             return Err("Already visited this position");
         }
-        self[pos.y as usize][pos.x as usize].visited.push(direction);
+        self[pos.y as usize][pos.x as usize].visited[direction] = true;
         Ok(true)
     }
 
@@ -199,7 +213,61 @@ pub fn part_one(input: &str) -> Option<usize> {
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
-    None
+    let map = parse_input(input);
+    [start_horizontal, start_vertical]
+        .into_par_iter()
+        .map(|f| f(map.clone()).unwrap())
+        .max()
+}
+
+fn start_horizontal(map: CaveMap) -> Option<usize> {
+    let cols = map.len() as isize;
+    let x = map[0].len() as isize;
+    [-1, x]
+        .into_par_iter()
+        .map(|x| find_max_horizontal(map.clone(), cols, x).unwrap())
+        .max()
+}
+
+fn start_vertical(map: CaveMap) -> Option<usize> {
+    let rows = map[0].len() as isize;
+    let y = map.len() as isize;
+    [-1, y]
+        .into_par_iter()
+        .map(|y| find_max_vertical(map.clone(), rows, y).unwrap())
+        .max()
+}
+
+fn find_max_horizontal(map: CaveMap, cols: isize, x: isize) -> Option<usize> {
+    (0..cols)
+        .into_par_iter()
+        .map(|y| {
+            let mut map_clone = map.clone();
+            let starting_pos = Position { x, y };
+            if x == -1 {
+                map_clone.move_right(starting_pos);
+            } else {
+                map_clone.move_left(starting_pos);
+            }
+            map_clone.count_visited()
+        })
+        .max()
+}
+
+fn find_max_vertical(map: CaveMap, rows: isize, y: isize) -> Option<usize> {
+    (0..rows)
+        .into_par_iter()
+        .map(|x| {
+            let mut map_clone = map.clone();
+            let starting_pos = Position { x, y };
+            if y == -1 {
+                map_clone.move_down(starting_pos);
+            } else {
+                map_clone.move_up(starting_pos);
+            }
+            map_clone.count_visited()
+        })
+        .max()
 }
 
 #[cfg(test)]
@@ -249,4 +317,6 @@ mod tests {
         assert_eq!(result, Some(51));
     }
 }
+
 // Part 1: 8034 (23.6ms)
+// Part 2: Part 1: 8034 (6.9ms) && Part 2: 8225 (345.4ms)
