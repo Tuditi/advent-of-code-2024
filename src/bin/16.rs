@@ -5,20 +5,20 @@ type CaveMap = Vec<Vec<Space>>;
 trait Navigation {
     fn split_vertical(&mut self, pos: Position);
     fn split_horizontal(&mut self, pos: Position);
-    fn visit_pos(&mut self, pos: Position, direction: VisitDirection);
+    fn visit_pos(&mut self, pos: Position, direction: VisitDirection) -> Result<bool, &str>;
     fn light_left_map(&self, pos: Position) -> bool;
     fn move_down(&mut self, prev_pos: Position);
     fn move_up(&mut self, prev_pos: Position);
     fn move_right(&mut self, prev_pos: Position);
     fn move_left(&mut self, prev_pos: Position);
     fn count_visited(&self) -> usize;
-    fn has_visited_before(&self, pos: Position, direction: VisitDirection) -> bool;
+    fn get_space(&self, pos: &Position) -> &Space;
 }
 
 #[derive(Copy, Clone, Debug)]
 struct Position {
-    x: usize,
-    y: usize,
+    x: isize,
+    y: isize,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -64,13 +64,13 @@ impl SpaceType {
 
 impl Navigation for CaveMap {
     fn light_left_map(&self, pos: Position) -> bool {
-        let max_rows = self.len();
-        let max_cols = self[0].len();
-        pos.x >= max_cols || pos.y >= max_rows
+        let max_rows = self.len() as isize;
+        let max_cols = self[0].len() as isize;
+        pos.x >= max_cols || pos.y >= max_rows || pos.x < 0 || pos.y < 0
     }
 
-    fn has_visited_before(&self, pos: Position, direction: VisitDirection) -> bool {
-        self[pos.y][pos.x].visited.contains(&direction)
+    fn get_space(&self, pos: &Position) -> &Space {
+        &self[pos.y as usize][pos.x as usize]
     }
 
     fn move_down(&mut self, prev_pos: Position) {
@@ -78,15 +78,12 @@ impl Navigation for CaveMap {
             x: prev_pos.x,
             y: prev_pos.y + 1,
         };
-        println!("Prev: {:?} , Befor light is at: {:?}", prev_pos, next_pos);
 
-        if self.light_left_map(next_pos) {
+        if self.visit_pos(next_pos, VisitDirection::Down).is_err() {
             return;
         }
 
-        self.visit_pos(next_pos, VisitDirection::Down);
-
-        match self[next_pos.y][next_pos.x].space_type {
+        match self.get_space(&next_pos).space_type {
             SpaceType::Empty | SpaceType::VerticalSplitter => self.move_down(next_pos),
             SpaceType::HorizontalSplitter => self.split_horizontal(next_pos),
             SpaceType::LeftRightMirror => self.move_left(next_pos),
@@ -95,23 +92,16 @@ impl Navigation for CaveMap {
     }
 
     fn move_up(&mut self, prev_pos: Position) {
-        // leaves map
-        if prev_pos.y == 0 {
-            return;
-        }
-
         let next_pos = Position {
             x: prev_pos.x,
             y: prev_pos.y - 1,
         };
-        let direction = VisitDirection::Up;
 
-        if self[next_pos.y][next_pos.x].visited.contains(&direction) {
+        if self.visit_pos(next_pos, VisitDirection::Up).is_err() {
             return;
         }
-        self.visit_pos(next_pos, direction);
 
-        match self[next_pos.y][next_pos.x].space_type {
+        match self.get_space(&next_pos).space_type {
             SpaceType::Empty | SpaceType::VerticalSplitter => self.move_up(next_pos),
             SpaceType::HorizontalSplitter => self.split_horizontal(next_pos),
             SpaceType::LeftRightMirror => self.move_right(next_pos),
@@ -125,20 +115,11 @@ impl Navigation for CaveMap {
             y: prev_pos.y,
         };
 
-        if self.light_left_map(next_pos) {
+        if self.visit_pos(next_pos, VisitDirection::Right).is_err() {
             return;
         }
 
-        let direction = VisitDirection::Right;
-
-        if self[next_pos.y][next_pos.x].visited.contains(&direction) {
-            return;
-        }
-        self.visit_pos(next_pos, direction);
-
-        let space_type = self[next_pos.y][next_pos.x].space_type;
-        println!("Space_type: {:?}", space_type);
-        match space_type {
+        match self.get_space(&next_pos).space_type {
             SpaceType::Empty | SpaceType::HorizontalSplitter => self.move_right(next_pos),
             SpaceType::VerticalSplitter => self.split_vertical(next_pos),
             SpaceType::LeftRightMirror => self.move_up(next_pos),
@@ -147,23 +128,16 @@ impl Navigation for CaveMap {
     }
 
     fn move_left(&mut self, prev_pos: Position) {
-        // leaves map
-        if prev_pos.x == 0 {
-            return;
-        }
-
         let next_pos = Position {
             x: prev_pos.x - 1,
             y: prev_pos.y,
         };
-        let direction = VisitDirection::Left;
 
-        if self[next_pos.y][next_pos.x].visited.contains(&direction) {
+        if self.visit_pos(next_pos, VisitDirection::Left).is_err() {
             return;
         }
-        self.visit_pos(next_pos, direction);
 
-        match self[next_pos.y][next_pos.x].space_type {
+        match self.get_space(&next_pos).space_type {
             SpaceType::Empty | SpaceType::HorizontalSplitter => self.move_left(next_pos),
             SpaceType::VerticalSplitter => self.split_vertical(next_pos),
             SpaceType::LeftRightMirror => self.move_down(next_pos),
@@ -183,16 +157,20 @@ impl Navigation for CaveMap {
         count
     }
 
-    fn visit_pos(&mut self, pos: Position, direction: VisitDirection) {
-        let Position { x, y } = pos;
+    fn visit_pos(&mut self, pos: Position, direction: VisitDirection) -> Result<bool, &str> {
+        if self.light_left_map(pos) {
+            return Err("Beam left the map!");
+        }
 
-        self[y][x].visited.push(direction)
+        if self.get_space(&pos).visited.contains(&direction) {
+            return Err("Already visited this position");
+        }
+        self[pos.y as usize][pos.x as usize].visited.push(direction);
+        Ok(true)
     }
 
     fn split_horizontal(&mut self, pos: Position) {
-        println!("Split horizontal {:?}", pos);
         self.move_right(pos);
-        println!("After right move {:?}", pos);
         self.move_left(pos);
     }
 
@@ -215,9 +193,8 @@ fn parse_input(input: &str) -> CaveMap {
 
 pub fn part_one(input: &str) -> Option<usize> {
     let mut map = parse_input(input);
-    let starting_pos = Position { x: 0, y: 0 };
-    map.visit_pos(starting_pos, VisitDirection::Right);
-    map.move_right(Position { x: 0, y: 0 });
+    let starting_pos = Position { x: -1, y: 0 };
+    map.move_right(starting_pos);
     Some(map.count_visited())
 }
 
@@ -239,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn test_split_infinite_iteration() {
+    fn test_infinite_iteration() {
         let result = part_one(
             ".-..\\
 .|.-/
@@ -247,6 +224,17 @@ mod tests {
 ..//.",
         );
         assert_eq!(result, Some(11));
+    }
+
+    #[test]
+    fn test_new_line() {
+        let result = part_one(
+            r"\-..\
+.|.-/
+.|...
+..//.",
+        );
+        assert_eq!(result, Some(4));
     }
 
     #[test]
@@ -258,6 +246,7 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(51));
     }
 }
+// Part 1: 8034 (23.6ms)
