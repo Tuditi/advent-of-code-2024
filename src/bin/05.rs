@@ -20,10 +20,10 @@ fn parse_input<'a>(
     let (first_line, next_lines) = input.split_once('\n').unwrap();
     let iterator = next_lines.lines().filter(|l| !l.is_empty());
 
-    let seeds = parsers::par_parse_line(&first_line);
+    let seeds = par_parse_line(&first_line);
 
     iterator.for_each(|l| {
-        let next_line: Vec<i64> = parsers::par_parse_line(&l).collect();
+        let next_line: Vec<i64> = par_parse_line(&l).collect();
         match &next_line.len() {
             0 => {
                 map_index += 1;

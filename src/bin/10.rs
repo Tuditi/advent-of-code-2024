@@ -1,5 +1,5 @@
 advent_of_code::solution!(10);
-use advent_of_code::utils::position::position::Position;
+use advent_of_code::utils::position::Position;
 
 #[derive(Clone, Debug)]
 struct Tile {

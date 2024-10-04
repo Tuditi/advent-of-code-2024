@@ -6,8 +6,8 @@ use advent_of_code::utils::parsers::*;
 
 fn parse_input(input: &str) -> Zip<impl Iterator<Item = u64> + '_, impl Iterator<Item = u64> + '_> {
     let mut lines = input.lines();
-    let time = parsers::parse_line::<u64>(lines.next().unwrap());
-    let distances = parsers::parse_line::<u64>(lines.next().unwrap());
+    let time = parse_line::<u64>(lines.next().unwrap());
+    let distances = parse_line::<u64>(lines.next().unwrap());
     time.zip(distances)
 }
 

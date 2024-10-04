@@ -1,7 +1,6 @@
 advent_of_code::solution!(9);
 
 use advent_of_code::utils::parsers::*;
-use parsers::parse_line;
 
 #[derive(Debug)]
 struct History {

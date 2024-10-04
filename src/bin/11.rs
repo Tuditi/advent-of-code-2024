@@ -2,7 +2,7 @@ advent_of_code::solution!(11);
 use rayon::*;
 use std::{collections::HashSet, str::Lines, vec::IntoIter};
 
-use advent_of_code::utils::position::position::*;
+use advent_of_code::utils::position::*;
 use itertools::{Combinations, Itertools};
 
 type SpaceExpansion = (HashSet<usize>, HashSet<usize>);
