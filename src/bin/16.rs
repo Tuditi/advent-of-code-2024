@@ -1,4 +1,5 @@
 advent_of_code::solution!(16);
+use advent_of_code::utils::map::*;
 use rayon::iter::*;
 
 type CaveMap = Vec<Vec<Space>>;
@@ -6,7 +7,7 @@ type CaveMap = Vec<Vec<Space>>;
 trait Navigation {
     fn split_vertical(&mut self, pos: Position);
     fn split_horizontal(&mut self, pos: Position);
-    fn visit_pos(&mut self, pos: Position, direction: VisitDirection) -> Result<bool, &str>;
+    fn visit_pos(&mut self, pos: Position, direction: Direction) -> Result<bool, &str>;
     fn light_left_map(&self, pos: Position) -> bool;
     fn move_down(&mut self, prev_pos: Position);
     fn move_up(&mut self, prev_pos: Position);
@@ -29,25 +30,6 @@ enum SpaceType {
     VerticalSplitter,
     LeftRightMirror,
     LeftDownMirror,
-}
-
-#[derive(Copy, Clone, PartialEq)]
-enum VisitDirection {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-impl From<VisitDirection> for usize {
-    fn from(direction: VisitDirection) -> Self {
-        match direction {
-            VisitDirection::Up => 0,
-            VisitDirection::Down => 1,
-            VisitDirection::Left => 2,
-            VisitDirection::Right => 3,
-        }
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -92,7 +74,7 @@ impl Navigation for CaveMap {
             y: prev_pos.y + 1,
         };
 
-        if self.visit_pos(next_pos, VisitDirection::Down).is_err() {
+        if self.visit_pos(next_pos, Direction::Down).is_err() {
             return;
         }
 
@@ -110,7 +92,7 @@ impl Navigation for CaveMap {
             y: prev_pos.y - 1,
         };
 
-        if self.visit_pos(next_pos, VisitDirection::Up).is_err() {
+        if self.visit_pos(next_pos, Direction::Up).is_err() {
             return;
         }
 
@@ -128,7 +110,7 @@ impl Navigation for CaveMap {
             y: prev_pos.y,
         };
 
-        if self.visit_pos(next_pos, VisitDirection::Right).is_err() {
+        if self.visit_pos(next_pos, Direction::Right).is_err() {
             return;
         }
 
@@ -146,7 +128,7 @@ impl Navigation for CaveMap {
             y: prev_pos.y,
         };
 
-        if self.visit_pos(next_pos, VisitDirection::Left).is_err() {
+        if self.visit_pos(next_pos, Direction::Left).is_err() {
             return;
         }
 
@@ -170,7 +152,7 @@ impl Navigation for CaveMap {
         count
     }
 
-    fn visit_pos(&mut self, pos: Position, direction: VisitDirection) -> Result<bool, &str> {
+    fn visit_pos(&mut self, pos: Position, direction: Direction) -> Result<bool, &str> {
         if self.light_left_map(pos) {
             return Err("Beam left the map!");
         }
