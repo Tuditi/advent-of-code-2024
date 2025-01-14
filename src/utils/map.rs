@@ -55,7 +55,7 @@ impl Navigate for Position {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, EnumIter)]
+#[derive(Copy, Clone, Eq, Hash, Debug, PartialEq, EnumIter)]
 pub enum Direction {
     Down,
     Right,
