@@ -1,8 +1,9 @@
 advent_of_code::solution!(17);
 
+use std::cmp::{Ordering, Reverse};
+use std::collections::BinaryHeap;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{self, Write};
+use std::u32;
 
 use advent_of_code::utils::map::*;
 use strum::IntoEnumIterator;
@@ -11,20 +12,47 @@ use strum::IntoEnumIterator;
 struct Maze {
     map: Vec<Vec<u8>>,
     ending_point: Position,
-    visited_vertices: HashMap<Position, u32>,
-    file: File,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+struct ExtendedNode {
+    heat: u32,
+    position: Position,
+    counter: u8,
+    direction: Option<Direction>,
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+struct VisitedKey {
+    position: Position,
+    counter: u8,
+    direction: Option<Direction>,
+}
+
+impl Ord for ExtendedNode {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.heat.cmp(&self.heat).then_with(|| {
+            let x = self.position.x + self.position.y;
+            let y = other.position.x + other.position.y;
+            x.cmp(&y)
+        })
+    }
+}
+
+impl PartialOrd for ExtendedNode {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Maze {
     fn new(input: &str) -> Self {
-        std::fs::remove_file("test.txt").unwrap();
-        let file = File::create("test.txt").unwrap();
-
         let mut map = vec![];
         input.lines().for_each(|l| {
             let mut row: Vec<u8> = vec![];
-            l.chars()
-                .for_each(|c| row.push(c.to_digit(10).unwrap() as u8));
+            l.chars().for_each(|c| {
+                row.push(c.to_digit(10).unwrap() as u8);
+            });
             map.push(row);
         });
 
@@ -33,39 +61,22 @@ impl Maze {
             y: (map.len() - 1) as isize,
         };
 
-        let mut visited_vertices: HashMap<Position, u32> = HashMap::new();
-        visited_vertices.insert(Position::new(0, 0), 0);
-
-        Self {
-            map,
-            ending_point,
-            visited_vertices,
-            file,
-        }
+        Self { map, ending_point }
     }
 
     fn get_value(&self, pos: &Position) -> u32 {
         self.map[pos.y as usize][pos.x as usize] as u32
     }
 
-    fn is_last_step(&self, pos: &Position) -> bool {
-        *pos == self.ending_point
-    }
-
-    fn result(&self) -> Option<u32> {
-        let result = self.visited_vertices.get(&self.ending_point)?;
-        Some(*result)
-    }
-
     fn get_next_steps(
         &self,
-        prev_direction: &Option<&Direction>,
+        prev_direction: &Option<Direction>,
         cur_pos: &Position,
-        counter: &i8,
+        counter: u8,
     ) -> Vec<Direction> {
         // Starting point
         if prev_direction.is_none() {
-            return vec![Direction::Down, Direction::Right];
+            return vec![Direction::Right, Direction::Down];
         }
 
         let prev_direction = prev_direction.unwrap();
@@ -79,7 +90,7 @@ impl Maze {
 
         possible_directions
             .filter(|d| {
-                if *d == prev_direction.opposite() || (*counter == 2 && d == prev_direction) {
+                if *d == prev_direction.opposite() || (counter == 2 && *d == prev_direction) {
                     return false;
                 }
 
@@ -93,53 +104,105 @@ impl Maze {
             .collect()
     }
 
-    fn check_next_pos(
-        &mut self,
-        prev_direction: Option<&Direction>,
-        cur_pos: &Position,
-        counter: &i8,
-    ) {
-        let next_moves = self.get_next_steps(&prev_direction, &cur_pos, &counter);
-        let current_heat_acc = self.visited_vertices.get(cur_pos).unwrap().clone();
+    fn get_adjacent_nodes(&self, cur_node: ExtendedNode) -> Vec<ExtendedNode> {
+        let directions =
+            self.get_next_steps(&cur_node.direction, &cur_node.position, cur_node.counter);
+        let mut result = vec![];
+        for d in directions {
+            let next_position = d.get_next_pos(&cur_node.position);
 
-        write!(self.file, "Next moves: {:?}\n", next_moves).unwrap();
-        for move_direction in next_moves.iter() {
-            let next_pos = move_direction.get_next_pos(&cur_pos);
-            let pos_value = self.get_value(&next_pos);
-            // let heat_acc = self.visited_vertices.get(&next_pos).unwrap_or(&199999);
-            // if *heat_acc < current_heat_acc + pos_value {
-            //     continue;
-            // }
-            let new_heat = current_heat_acc.clone() + pos_value;
-            self.visited_vertices.insert(next_pos, new_heat);
-            write!(self.file, "Inserted at {:?} heat: {new_heat}\n", next_pos).unwrap();
+            let adj_node = ExtendedNode {
+                heat: cur_node.heat + self.get_value(&next_position),
+                position: next_position,
+                counter: get_new_counter(&cur_node.direction, &d, cur_node.counter),
+                direction: Some(d),
+            };
 
-            if self.is_last_step(&next_pos) || *counter == 2 {
+            result.push(adj_node)
+        }
+        result
+    }
+
+    fn dijkstra_algorithm(&self) -> Option<u32> {
+        let mut visited_vertices: HashMap<VisitedKey, u32> = HashMap::new();
+        let mut unvisited_vertices: BinaryHeap<ExtendedNode> = BinaryHeap::new();
+
+        let node = ExtendedNode {
+            heat: 0,
+            position: Position::new(0, 0),
+            counter: 0,
+            direction: None,
+        };
+        unvisited_vertices.push(node);
+        visited_vertices.insert(
+            VisitedKey {
+                position: Position::new(0, 0),
+                counter: 0,
+                direction: None,
+            },
+            0,
+        );
+
+        while let Some(node) = unvisited_vertices.pop() {
+            let key = VisitedKey {
+                position: node.position,
+                counter: node.counter,
+                direction: node.direction,
+            };
+            if node.heat > *visited_vertices.get(&key).unwrap_or(&u32::MAX) {
                 continue;
-            } else {
-                let new_counter = match prev_direction {
-                    Some(direction) => {
-                        if move_direction == direction {
-                            counter + 1
-                        } else {
-                            0
-                        }
-                    }
-                    None => 0,
-                };
-
-                self.check_next_pos(Some(move_direction), &next_pos, &new_counter);
             }
+            visited_vertices.insert(key, node.heat);
+
+            let adjacent_nodes = self.get_adjacent_nodes(node.clone());
+            for new_node in adjacent_nodes {
+                unvisited_vertices.push(new_node.clone());
+            }
+        }
+
+        Some(self.get_result(&visited_vertices))
+    }
+
+    fn get_result<'a>(&'a self, visited_vertices: &'a HashMap<VisitedKey, u32>) -> u32 {
+        let mut results: BinaryHeap<Reverse<&u32>> = BinaryHeap::new();
+        for i in 0..3 {
+            for direction in [Direction::Right, Direction::Down] {
+                let key = VisitedKey {
+                    position: self.ending_point,
+                    counter: i,
+                    direction: Some(direction),
+                };
+                results.push(Reverse(visited_vertices.get(&key).unwrap_or(&u32::MAX)))
+            }
+        }
+        println!("Results :{:?}", results);
+        match results.pop() {
+            Some(Reverse(result)) => *result,
+            None => panic!("He"),
         }
     }
 }
 
+fn get_new_counter(
+    prev_direction: &Option<Direction>,
+    current_direction: &Direction,
+    counter: u8,
+) -> u8 {
+    match *prev_direction {
+        Some(direction) => {
+            if *current_direction == direction {
+                counter + 1
+            } else {
+                0
+            }
+        }
+        None => 0,
+    }
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
-    let mut maze: Maze = Maze::new(input);
-    let current_pos = Position { x: 0, y: 0 };
-    let counter = 0;
-    maze.check_next_pos(None, &current_pos, &counter);
-    maze.result()
+    let maze: Maze = Maze::new(input);
+    maze.dijkstra_algorithm()
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
@@ -165,9 +228,9 @@ mod tests {
         assert_eq!(result, Some(102));
     }
 
-    #[test]
-    fn test_part_two() {
-        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
-    }
+    // #[test]
+    // fn test_part_two() {
+    //     let result = part_two(&advent_of_code::template::read_file("examples", DAY));
+    //     assert_eq!(result, None);
+    // }
 }
