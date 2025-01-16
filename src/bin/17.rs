@@ -3,38 +3,36 @@ advent_of_code::solution!(17);
 use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::u32;
 
 use advent_of_code::utils::map::*;
 use strum::IntoEnumIterator;
 
+type PositionX = (u32, u32);
+
 #[derive(Debug)]
 struct Maze {
-    map: Vec<Vec<u8>>,
-    ending_point: Position,
+    map: HashMap<PositionX, u8>,
+    ending_point: PositionX,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 struct ExtendedNode {
     heat: u32,
-    position: Position,
+    position: PositionX,
     counter: u8,
     direction: Option<Direction>,
 }
 
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
-struct VisitedKey {
-    position: Position,
-    counter: u8,
-    direction: Option<Direction>,
-}
+type VisitedKey = (PositionX, u8, Option<Direction>);
 
 impl Ord for ExtendedNode {
     fn cmp(&self, other: &Self) -> Ordering {
         other.heat.cmp(&self.heat).then_with(|| {
-            let x = self.position.x + self.position.y;
-            let y = other.position.x + other.position.y;
-            x.cmp(&y)
+            let a = self.position.0 + self.position.1;
+            let b = other.position.0 + other.position.1;
+            a.cmp(&b)
         })
     }
 }
@@ -47,61 +45,54 @@ impl PartialOrd for ExtendedNode {
 
 impl Maze {
     fn new(input: &str) -> Self {
-        let mut map = vec![];
-        input.lines().for_each(|l| {
-            let mut row: Vec<u8> = vec![];
-            l.chars().for_each(|c| {
-                row.push(c.to_digit(10).unwrap() as u8);
+        let mut map: HashMap<PositionX, u8> = HashMap::new();
+
+        input.lines().enumerate().for_each(|(y, l)| {
+            l.chars().enumerate().for_each(|(x, c)| {
+                map.insert((x as u32, y as u32), c.to_digit(10).unwrap() as u8);
             });
-            map.push(row);
         });
 
-        let ending_point = Position {
-            x: (map[0].len() - 1) as isize,
-            y: (map.len() - 1) as isize,
-        };
+        let end_y = input.lines().count() as u32;
+        let end_x = input.lines().next().unwrap().len() as u32;
+        let ending_point: PositionX = (end_x - 1, end_y - 1);
 
         Self { map, ending_point }
     }
 
-    fn get_value(&self, pos: &Position) -> u32 {
-        self.map[pos.y as usize][pos.x as usize] as u32
+    fn get_value(&self, pos: &PositionX) -> u32 {
+        *self.map.get(pos).unwrap() as u32
     }
 
     fn get_next_steps(
         &self,
         prev_direction: &Option<Direction>,
-        cur_pos: &Position,
+        cur_pos: &PositionX,
         counter: u8,
     ) -> Vec<Direction> {
-        // Starting point
-        if prev_direction.is_none() {
-            return vec![Direction::Right, Direction::Down];
+        match prev_direction {
+            // Starting Point
+            None => vec![Direction::Right, Direction::Down],
+            Some(prev_direction) => {
+                let possible_directions = Direction::iter();
+
+                possible_directions
+                    .filter(|d| {
+                        if *d == prev_direction.opposite() || (counter == 2 && d == prev_direction)
+                        {
+                            return false;
+                        }
+
+                        match *d {
+                            Direction::Down => cur_pos.1 != self.ending_point.1,
+                            Direction::Up => cur_pos.1 != 0,
+                            Direction::Left => cur_pos.0 != 0,
+                            Direction::Right => cur_pos.0 != self.ending_point.0,
+                        }
+                    })
+                    .collect()
+            }
         }
-
-        let prev_direction = prev_direction.unwrap();
-        let possible_directions = Direction::iter();
-
-        let remove_left = cur_pos.x == 0;
-        let remove_up = cur_pos.y == 0;
-
-        let remove_right = cur_pos.x == self.ending_point.x;
-        let remove_down = cur_pos.y == self.ending_point.y;
-
-        possible_directions
-            .filter(|d| {
-                if *d == prev_direction.opposite() || (counter == 2 && *d == prev_direction) {
-                    return false;
-                }
-
-                match *d {
-                    Direction::Down => !remove_down,
-                    Direction::Up => !remove_up,
-                    Direction::Left => !remove_left,
-                    Direction::Right => !remove_right,
-                }
-            })
-            .collect()
     }
 
     fn get_adjacent_nodes(&self, cur_node: ExtendedNode) -> Vec<ExtendedNode> {
@@ -109,7 +100,7 @@ impl Maze {
             self.get_next_steps(&cur_node.direction, &cur_node.position, cur_node.counter);
         let mut result = vec![];
         for d in directions {
-            let next_position = d.get_next_pos(&cur_node.position);
+            let next_position = d.get_next_pos_x(&cur_node.position);
 
             let adj_node = ExtendedNode {
                 heat: cur_node.heat + self.get_value(&next_position),
@@ -129,34 +120,32 @@ impl Maze {
 
         let node = ExtendedNode {
             heat: 0,
-            position: Position::new(0, 0),
+            position: (0, 0),
             counter: 0,
             direction: None,
         };
         unvisited_vertices.push(node);
-        visited_vertices.insert(
-            VisitedKey {
-                position: Position::new(0, 0),
-                counter: 0,
-                direction: None,
-            },
-            0,
-        );
+        visited_vertices.insert(((0, 0), 0, None), 0);
 
         while let Some(node) = unvisited_vertices.pop() {
-            let key = VisitedKey {
-                position: node.position,
-                counter: node.counter,
-                direction: node.direction,
-            };
+            let key: VisitedKey = (node.position, node.counter, node.direction);
             if node.heat > *visited_vertices.get(&key).unwrap_or(&u32::MAX) {
                 continue;
+            }
+
+            if node.position == self.ending_point {
+                return Some(node.heat);
             }
             visited_vertices.insert(key, node.heat);
 
             let adjacent_nodes = self.get_adjacent_nodes(node.clone());
             for new_node in adjacent_nodes {
-                unvisited_vertices.push(new_node.clone());
+                let new_key = (new_node.position, new_node.counter, new_node.direction);
+                if !visited_vertices.contains_key(&new_key)
+                    || new_node.heat < visited_vertices[&new_key]
+                {
+                    unvisited_vertices.push(new_node.clone());
+                }
             }
         }
 
@@ -167,11 +156,7 @@ impl Maze {
         let mut results: BinaryHeap<Reverse<&u32>> = BinaryHeap::new();
         for i in 0..3 {
             for direction in [Direction::Right, Direction::Down] {
-                let key = VisitedKey {
-                    position: self.ending_point,
-                    counter: i,
-                    direction: Some(direction),
-                };
+                let key = (self.ending_point, i, Some(direction));
                 results.push(Reverse(visited_vertices.get(&key).unwrap_or(&u32::MAX)))
             }
         }
