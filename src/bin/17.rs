@@ -1,9 +1,8 @@
 advent_of_code::solution!(17);
 
 use std::cmp::{Ordering, Reverse};
-use std::collections::BinaryHeap;
 use std::collections::HashMap;
-use std::hash::Hash;
+use std::collections::{BinaryHeap, HashSet};
 use std::u32;
 
 use advent_of_code::utils::map::*;
@@ -117,6 +116,7 @@ impl Maze {
     fn dijkstra_algorithm(&self) -> Option<u32> {
         let mut visited_vertices: HashMap<VisitedKey, u32> = HashMap::new();
         let mut unvisited_vertices: BinaryHeap<ExtendedNode> = BinaryHeap::new();
+        let mut unvisited_keys: HashSet<VisitedKey> = HashSet::new();
 
         let node = ExtendedNode {
             heat: 0,
@@ -141,10 +141,15 @@ impl Maze {
             let adjacent_nodes = self.get_adjacent_nodes(node.clone());
             for new_node in adjacent_nodes {
                 let new_key = (new_node.position, new_node.counter, new_node.direction);
+                if unvisited_keys.contains(&new_key) {
+                    continue;
+                }
+
                 if !visited_vertices.contains_key(&new_key)
                     || new_node.heat < visited_vertices[&new_key]
                 {
                     unvisited_vertices.push(new_node.clone());
+                    unvisited_keys.insert(new_key);
                 }
             }
         }
