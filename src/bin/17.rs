@@ -8,23 +8,21 @@ use std::u32;
 use advent_of_code::utils::map::*;
 use strum::IntoEnumIterator;
 
-type PositionX = (u32, u32);
-
 #[derive(Debug)]
 struct Maze {
-    map: HashMap<PositionX, u8>,
-    ending_point: PositionX,
+    map: HashMap<Position, u8>,
+    ending_point: Position,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 struct ExtendedNode {
     heat: u32,
-    position: PositionX,
+    position: Position,
     counter: u8,
     direction: Option<Direction>,
 }
 
-type VisitedKey = (PositionX, u8, Option<Direction>);
+type VisitedKey = (Position, u8, Option<Direction>);
 
 impl Ord for ExtendedNode {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -44,29 +42,29 @@ impl PartialOrd for ExtendedNode {
 
 impl Maze {
     fn new(input: &str) -> Self {
-        let mut map: HashMap<PositionX, u8> = HashMap::new();
+        let mut map: HashMap<Position, u8> = HashMap::new();
 
         input.lines().enumerate().for_each(|(y, l)| {
             l.chars().enumerate().for_each(|(x, c)| {
-                map.insert((x as u32, y as u32), c.to_digit(10).unwrap() as u8);
+                map.insert((x, y), c.to_digit(10).unwrap() as u8);
             });
         });
 
-        let end_y = input.lines().count() as u32;
-        let end_x = input.lines().next().unwrap().len() as u32;
-        let ending_point: PositionX = (end_x - 1, end_y - 1);
+        let end_y = input.lines().count();
+        let end_x = input.lines().next().unwrap().len();
+        let ending_point: Position = (end_x - 1, end_y - 1);
 
         Self { map, ending_point }
     }
 
-    fn get_value(&self, pos: &PositionX) -> u32 {
+    fn get_value(&self, pos: &Position) -> u32 {
         *self.map.get(pos).unwrap() as u32
     }
 
     fn get_next_steps(
         &self,
         prev_direction: &Option<Direction>,
-        cur_pos: &PositionX,
+        cur_pos: &Position,
         counter: u8,
     ) -> Vec<Direction> {
         match prev_direction {
@@ -224,3 +222,5 @@ mod tests {
     //     assert_eq!(result, None);
     // }
 }
+
+// Part 1: 1001 (878.9ms)  Part 2: ✖
