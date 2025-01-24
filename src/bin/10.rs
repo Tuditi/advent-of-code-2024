@@ -1,5 +1,5 @@
 advent_of_code::solution!(10);
-use advent_of_code::utils::position::Position;
+use advent_of_code::utils::map::*;
 
 #[derive(Clone, Debug)]
 struct Tile {
@@ -18,28 +18,28 @@ fn create_map<'a>(input: &'a str) -> TileMap<'a> {
 fn get_starting_position(map: &TileMap) -> Position {
     for i in 0..map.len() {
         if let Some(x) = map[i].find(|c| c == 'S') {
-            return Position::new(x, i);
+            return (x, i);
         };
     }
     panic!("No starting position found!");
 }
 
 fn get_tile_type(position: Position, map: &TileMap) -> u8 {
-    let (x, y) = position.get_position();
+    let (x, y) = position;
     map[y].as_bytes()[x]
 }
 
 fn get_starting_char(position: &Position, map: &TileMap) -> char {
-    let (x, y) = position.get_position();
+    let (x, y) = *position;
     if x > 0 {
-        let left = get_tile_type(Position::new(x - 1, y), map);
+        let left = get_tile_type((x - 1, y), map);
         match left {
             b'-' | b'F' | b'L' => {
                 if let Some(_type) = get_if_j_or_7(&position, &map) {
                     return _type;
                 }
                 if x + 1 < map[0].len() {
-                    let right = get_tile_type(Position::new(x + 1, y), &map);
+                    let right = get_tile_type((x + 1, y), &map);
                     if right == b'-' || right == b'7' || right == b'J' {
                         return '-';
                     }
@@ -47,17 +47,17 @@ fn get_starting_char(position: &Position, map: &TileMap) -> char {
                 panic!("Invalid input!");
             }
             _ => {
-                let below = get_tile_type(Position::new(x, y + 1), &map);
+                let below = get_tile_type((x, y + 1), &map);
                 match below {
                     b'L' | b'|' | b'J' => {
                         if x + 1 < map[0].len() {
-                            let right = get_tile_type(Position::new(x + 1, y), &map);
+                            let right = get_tile_type((x + 1, y), &map);
                             if right == b'-' || right == b'7' || right == b'J' {
                                 return 'F';
                             }
                         }
                         if y > 0 {
-                            let above = get_tile_type(Position::new(x, y - 1), &map);
+                            let above = get_tile_type((x, y - 1), &map);
                             if above == b'7' || above == b'F' || above == b'|' {
                                 return '7';
                             }
@@ -66,7 +66,7 @@ fn get_starting_char(position: &Position, map: &TileMap) -> char {
                     }
                     _ => {
                         if y > 0 {
-                            let above = get_tile_type(Position::new(x, y - 1), &map);
+                            let above = get_tile_type((x, y - 1), &map);
                             if above == b'7' || above == b'F' || above == b'|' {
                                 'L';
                             }
@@ -77,7 +77,7 @@ fn get_starting_char(position: &Position, map: &TileMap) -> char {
             }
         };
     } else {
-        let right = get_tile_type(Position::new(x + 1, y), map);
+        let right = get_tile_type((x + 1, y), map);
         match right {
             b'7' | b'-' | b'J' => return get_if_j_or_7(&position, &map).unwrap(),
             _ => panic!("Invalid input"),
@@ -86,32 +86,34 @@ fn get_starting_char(position: &Position, map: &TileMap) -> char {
 }
 
 fn get_if_j_or_7(position: &Position, map: &TileMap) -> Option<char> {
-    let (x, y) = position.get_position();
+    let (x, y) = *position;
     if y > 0 {
-        let above = get_tile_type(Position::new(x, y - 1), &map);
+        let above = get_tile_type((x, y - 1), &map);
         if above == b'F' || above == b'7' || above == b'|' {
             return Some('J');
         }
     }
     if y + 1 < map.len() {
-        let below = get_tile_type(Position::new(x, y + 1), &map);
+        let below = get_tile_type((x, y + 1), &map);
         if below == b'J' || below == b'L' || below == b'|' {
             return Some('7');
         }
     }
     None
 }
+
 fn next_position(previous_pos: &Position, current: &Tile) -> Position {
-    let current_position = current.position;
-    match current.tile_type {
-        '|' => current_position.move_vertical(previous_pos),
-        '-' => current_position.move_horizontal(previous_pos),
-        'L' => current_position.move_north_east(previous_pos),
-        'J' => current_position.move_north_west(previous_pos),
-        '7' => current_position.move_south_west(previous_pos),
-        'F' => current_position.move_south_east(previous_pos),
+    let current_position = &current.position;
+    let res = match current.tile_type {
+        '|' => Map::move_vertical(current_position, previous_pos),
+        '-' => Map::move_horizontal(current_position, previous_pos),
+        'L' => Map::move_north_east(current_position, previous_pos),
+        'J' => Map::move_north_west(current_position, previous_pos),
+        '7' => Map::move_south_west(current_position, previous_pos),
+        'F' => Map::move_south_east(current_position, previous_pos),
         _ => panic!("Impossible type :{:?}", current.tile_type),
-    }
+    };
+    res
 }
 
 fn find_loop(map: &TileMap) -> Vec<Position> {
@@ -152,7 +154,7 @@ pub fn part_two(input: &str) -> Option<u32> {
     for y in 0..map.len() {
         let mut half_cross = b'.';
         for x in 0..width {
-            let current_position = Position::new(x, y);
+            let current_position = (x, y);
             let mut tile_type = get_tile_type(current_position, &map);
             if tile_type == b'S' {
                 tile_type = get_starting_char(&current_position, &map) as u8;

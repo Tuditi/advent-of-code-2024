@@ -2,7 +2,7 @@ advent_of_code::solution!(11);
 use rayon::*;
 use std::{collections::HashSet, str::Lines, vec::IntoIter};
 
-use advent_of_code::utils::position::*;
+use advent_of_code::utils::map::*;
 use itertools::{Combinations, Itertools};
 
 type SpaceExpansion = (HashSet<usize>, HashSet<usize>);
@@ -38,9 +38,7 @@ fn create_pairs(
     space.enumerate().for_each(|(i, row)| {
         let mut galaxy_row = row
             .match_indices('#')
-            .map(|(j, _)| {
-                create_expanded_position(Position::new(j, i), expansion, expansion_factor)
-            })
+            .map(|(j, _)| create_expanded_position((j, i), expansion, expansion_factor))
             .collect();
         pairs.append(&mut galaxy_row);
     });
@@ -52,20 +50,20 @@ fn create_expanded_position(
     expansion: &SpaceExpansion,
     expansion_factor: usize,
 ) -> Position {
-    let (x, y) = position.get_position();
+    let (x, y) = position;
     let x_expanded =
         x + (expansion.1.iter().filter(|&&col_idx| col_idx < x).count() * (expansion_factor - 1));
     let y_expanded =
         y + (expansion.0.iter().filter(|&&row_idx| row_idx < y).count() * (expansion_factor - 1));
 
-    Position::new(x_expanded, y_expanded)
+    (x_expanded, y_expanded)
 }
 
 fn get_expanded_distance(pair: &Vec<Position>) -> usize {
     if pair.len() != 2 {
         panic!("Incorrect pair length!");
     }
-    pair[0].get_distance(pair[1])
+    Map::get_distance(pair[0], pair[1])
 }
 
 fn estimate_galaxy_size(input: &str, expansion_factor: usize) -> Option<u64> {
@@ -91,22 +89,22 @@ mod tests {
         let expansion_factor = 2;
         let expansion: SpaceExpansion = (HashSet::from([3, 7]), HashSet::from([2, 5, 8]));
 
-        let point_5 = create_expanded_position(Position::new(1, 5), &expansion, expansion_factor);
-        let point_9 = create_expanded_position(Position::new(4, 9), &expansion, expansion_factor);
+        let point_5 = create_expanded_position((1, 5), &expansion, expansion_factor);
+        let point_9 = create_expanded_position((4, 9), &expansion, expansion_factor);
         let result = get_expanded_distance(&vec![point_5, point_9]);
         assert_eq!(result, 9);
 
-        let point_1 = create_expanded_position(Position::new(3, 0), &expansion, expansion_factor);
-        let point_7 = create_expanded_position(Position::new(7, 8), &expansion, expansion_factor);
+        let point_1 = create_expanded_position((3, 0), &expansion, expansion_factor);
+        let point_7 = create_expanded_position((7, 8), &expansion, expansion_factor);
         let result = get_expanded_distance(&vec![point_1, point_7]);
         assert_eq!(result, 15);
 
-        let point_3 = create_expanded_position(Position::new(0, 2), &expansion, expansion_factor);
-        let point_6 = create_expanded_position(Position::new(9, 6), &expansion, expansion_factor);
+        let point_3 = create_expanded_position((0, 2), &expansion, expansion_factor);
+        let point_6 = create_expanded_position((9, 6), &expansion, expansion_factor);
         let result = get_expanded_distance(&vec![point_3, point_6]);
         assert_eq!(result, 17);
 
-        let point_8 = create_expanded_position(Position::new(0, 9), &expansion, expansion_factor);
+        let point_8 = create_expanded_position((0, 9), &expansion, expansion_factor);
         let result = get_expanded_distance(&vec![point_8, point_9]);
         assert_eq!(result, 5);
     }

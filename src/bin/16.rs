@@ -1,4 +1,5 @@
 advent_of_code::solution!(16);
+use advent_of_code::utils::map::*;
 use rayon::iter::*;
 use advent_of_code::utils::map::*;
 
