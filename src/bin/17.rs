@@ -12,6 +12,8 @@ use strum::IntoEnumIterator;
 struct Maze {
     map: HashMap<Position, u8>,
     ending_point: Position,
+    visited_vertices: HashMap<Position, u32>,
+    file: File,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -169,7 +171,6 @@ impl Maze {
             None => panic!("He"),
         }
     }
-}
 
 fn get_new_counter(
     prev_direction: &Option<Direction>,
