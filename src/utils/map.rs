@@ -101,7 +101,7 @@ impl Direction {
         }
     }
 
-    pub fn get_next_pos_x(&self, cur_pos: &Position) -> Position {
+    pub fn get_next_pos(&self, cur_pos: &Position) -> Position {
         match &self {
             Direction::Up => Direction::up(cur_pos),
             Direction::Down => Direction::down(cur_pos),
@@ -111,7 +111,7 @@ impl Direction {
     }
 
     pub fn up(cur_pos: &Position) -> Position {
-        (cur_pos.0, cur_pos.1 - 1)
+        (cur_pos.0, cur_pos.1.wrapping_sub(1))
     }
 
     pub fn down(cur_pos: &Position) -> Position {
@@ -119,7 +119,7 @@ impl Direction {
     }
 
     pub fn left(cur_pos: &Position) -> Position {
-        (cur_pos.0 - 1, cur_pos.1)
+        (cur_pos.0.wrapping_sub(1), cur_pos.1)
     }
 
     pub fn right(cur_pos: &Position) -> Position {

@@ -23,6 +23,7 @@ struct ExtendedNode {
 }
 
 type VisitedKey = (Position, u8, Option<Direction>);
+type ConstraintFunction = dyn Fn(&ExtendedNode, &Direction) -> bool;
 
 impl Ord for ExtendedNode {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -57,61 +58,11 @@ impl Maze {
         Self { map, ending_point }
     }
 
-    fn get_value(&self, pos: &Position) -> u32 {
+    pub fn get_value(&self, pos: &Position) -> u32 {
         *self.map.get(pos).unwrap() as u32
     }
 
-    fn get_next_steps(
-        &self,
-        prev_direction: &Option<Direction>,
-        cur_pos: &Position,
-        counter: u8,
-    ) -> Vec<Direction> {
-        match prev_direction {
-            // Starting Point
-            None => vec![Direction::Right, Direction::Down],
-            Some(prev_direction) => {
-                let possible_directions = Direction::iter();
-
-                possible_directions
-                    .filter(|d| {
-                        if *d == prev_direction.opposite() || (counter == 2 && d == prev_direction)
-                        {
-                            return false;
-                        }
-
-                        match *d {
-                            Direction::Down => cur_pos.1 != self.ending_point.1,
-                            Direction::Up => cur_pos.1 != 0,
-                            Direction::Left => cur_pos.0 != 0,
-                            Direction::Right => cur_pos.0 != self.ending_point.0,
-                        }
-                    })
-                    .collect()
-            }
-        }
-    }
-
-    fn get_adjacent_nodes(&self, cur_node: ExtendedNode) -> Vec<ExtendedNode> {
-        let directions =
-            self.get_next_steps(&cur_node.direction, &cur_node.position, cur_node.counter);
-        let mut result = vec![];
-        for d in directions {
-            let next_position = d.get_next_pos_x(&cur_node.position);
-
-            let adj_node = ExtendedNode {
-                heat: cur_node.heat + self.get_value(&next_position),
-                position: next_position,
-                counter: get_new_counter(&cur_node.direction, &d, cur_node.counter),
-                direction: Some(d),
-            };
-
-            result.push(adj_node)
-        }
-        result
-    }
-
-    fn dijkstra_algorithm(&self) -> Option<u32> {
+    fn dijkstra_algorithm(&self, constraint: &ConstraintFunction) -> Option<u32> {
         let mut visited_vertices: HashMap<VisitedKey, u32> = HashMap::new();
         let mut unvisited_vertices: BinaryHeap<ExtendedNode> = BinaryHeap::new();
         let mut unvisited_keys: HashSet<VisitedKey> = HashSet::new();
@@ -136,7 +87,7 @@ impl Maze {
             }
             visited_vertices.insert(key, node.heat);
 
-            let adjacent_nodes = self.get_adjacent_nodes(node.clone());
+            let adjacent_nodes = self.get_adjacent_nodes(node.clone(), constraint);
             for new_node in adjacent_nodes {
                 let new_key = (new_node.position, new_node.counter, new_node.direction);
                 if unvisited_keys.contains(&new_key) {
@@ -155,6 +106,60 @@ impl Maze {
         Some(self.get_result(&visited_vertices))
     }
 
+    fn get_adjacent_nodes(
+        &self,
+        cur_node: ExtendedNode,
+        constraint: &ConstraintFunction,
+    ) -> Vec<ExtendedNode> {
+        let directions = self.get_next_steps(&cur_node, constraint);
+        let mut result = vec![];
+        for d in directions {
+            let next_position = d.get_next_pos(&cur_node.position);
+
+            let adj_node = ExtendedNode {
+                heat: cur_node.heat + self.get_value(&next_position),
+                position: next_position,
+                counter: get_new_counter(&cur_node.direction, &d, cur_node.counter),
+                direction: Some(d),
+            };
+
+            result.push(adj_node)
+        }
+        result
+    }
+
+    fn get_next_steps(
+        &self,
+        cur_node: &ExtendedNode,
+        constraint: &ConstraintFunction,
+    ) -> Vec<Direction> {
+        let prev_direction = cur_node.direction;
+        let cur_pos = cur_node.position;
+        match prev_direction {
+            // Starting Point
+            None => vec![Direction::Down, Direction::Right],
+            Some(prev_direction) => {
+                let possible_directions = Direction::iter();
+
+                let res = possible_directions
+                    .filter(|d| {
+                        if *d == prev_direction.opposite() || constraint(cur_node, d) {
+                            return false;
+                        }
+
+                        match *d {
+                            Direction::Down => cur_pos.1 != self.ending_point.1,
+                            Direction::Up => cur_pos.1 != 0,
+                            Direction::Left => cur_pos.0 != 0,
+                            Direction::Right => cur_pos.0 != self.ending_point.0,
+                        }
+                    })
+                    .collect();
+                res
+            }
+        }
+    }
+
     fn get_result<'a>(&'a self, visited_vertices: &'a HashMap<VisitedKey, u32>) -> u32 {
         let mut results: BinaryHeap<Reverse<&u32>> = BinaryHeap::new();
         for i in 0..3 {
@@ -163,7 +168,6 @@ impl Maze {
                 results.push(Reverse(visited_vertices.get(&key).unwrap_or(&u32::MAX)))
             }
         }
-        println!("Results :{:?}", results);
         match results.pop() {
             Some(Reverse(result)) => *result,
             None => panic!("He"),
@@ -190,11 +194,32 @@ fn get_new_counter(
 
 pub fn part_one(input: &str) -> Option<u32> {
     let maze: Maze = Maze::new(input);
-    maze.dijkstra_algorithm()
+    let constraint = |node: &ExtendedNode, next_direction: &Direction| {
+        let counter = node.counter;
+        let prev_direction = node.direction.unwrap();
+        counter == 2 && *next_direction == prev_direction
+    };
+    maze.dijkstra_algorithm(&constraint)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    let maze: Maze = Maze::new(input);
+    let ending_point = maze.ending_point;
+    let constraint = move |node: &ExtendedNode, next_direction: &Direction| {
+        let counter = node.counter;
+        let prev_direction = node.direction.unwrap();
+
+        if next_direction.get_next_pos(&node.position) == ending_point {
+            // <=, because we will do another move to land in the good spot
+            return counter <= 3 || *next_direction != prev_direction;
+        }
+
+        let not_enough_moves = counter < 3 && *next_direction != prev_direction;
+        let reached_maximum_moves = counter == 9 && *next_direction == prev_direction;
+
+        not_enough_moves || reached_maximum_moves
+    };
+    maze.dijkstra_algorithm(&constraint)
 }
 
 #[cfg(test)]
@@ -216,11 +241,22 @@ mod tests {
         assert_eq!(result, Some(102));
     }
 
-    // #[test]
-    // fn test_part_two() {
-    //     let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-    //     assert_eq!(result, None);
-    // }
+    #[test]
+    fn test_part_two() {
+        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
+        assert_eq!(result, Some(94));
+    }
+
+    #[test]
+    fn test_part_two_b() {
+        let maze_str = "111111111111
+999999999991
+999999999991
+999999999991
+999999999991";
+        let result = part_two(&maze_str);
+        assert_eq!(result, Some(71));
+    }
 }
 
-// Part 1: 1001 (878.9ms)  Part 2: ✖
+// Part 1: 1001 (878.9ms)  Part 2: 1197 (2.5s)
