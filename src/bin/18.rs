@@ -5,13 +5,14 @@ use advent_of_code::utils::map::Direction;
 type Position = (isize, isize);
 type DigStep = (Direction, isize);
 
-fn parse_map(input: &str, parse_line: impl Fn(&str) -> DigStep) -> Vec<Position> {
-    let input_iter = input.lines();
-    let input_count = input_iter.count();
-    let mut dig_plan: Vec<Position> = Vec::with_capacity(input_count);
-
+fn parse_map<F>(input: &str, parse_line: F) -> Vec<Position>
+where
+    F: Fn(&str) -> DigStep,
+{
     let mut current_point: Position = (0, 0);
-    input.lines().for_each(|l| {
+    let mut dig_plan: Vec<Position> = Vec::with_capacity(input.lines().count());
+
+    for l in input.lines() {
         let (direction, steps) = parse_line(l);
         match direction {
             Direction::Down => {
@@ -28,10 +29,7 @@ fn parse_map(input: &str, parse_line: impl Fn(&str) -> DigStep) -> Vec<Position>
             }
         }
         dig_plan.push(current_point);
-    });
-
-    normalize(&mut dig_plan);
-
+    }
     dig_plan
 }
 
@@ -44,15 +42,18 @@ fn parse_line(line: &str) -> DigStep {
         "U" => Direction::Up,
         _ => panic!("At least one value is required!"),
     };
-    let steps = splitted_line.next().unwrap().parse::<usize>().unwrap();
-    (direction, steps as isize)
+    let steps = splitted_line.next().unwrap().parse::<isize>().unwrap();
+    (direction, steps)
 }
 
 fn parse_hex(line: &str) -> DigStep {
-    let splitted_line = line.split(|c| c == ' ');
-    let mut splitted_line = splitted_line.skip(2);
-    let value = &splitted_line.next().unwrap()[2..8];
-    let (meters, direction_str) = value.split_at(5);
+    let mut it = line.split_whitespace();
+    let _dir_txt = it.next().unwrap();
+    let _steps_txt = it.next().unwrap();
+    let raw = it.next().unwrap();
+    let inner = raw.strip_prefix('(').and_then(|s| s.strip_suffix(')'));
+    let inner = inner.and_then(|s| s.strip_prefix('#')).unwrap();
+    let (meters, direction_str) = inner.split_at(5);
 
     let direction = match direction_str {
         "0" => Direction::Right,
@@ -63,21 +64,10 @@ fn parse_hex(line: &str) -> DigStep {
     };
 
     let steps = isize::from_str_radix(meters, 16).unwrap();
-    // println!("Steps: {steps}");
     (direction, steps)
 }
 
-fn normalize(map: &mut Vec<Position>) {
-    let min_x_coord = map.iter().min_by(|x, y| x.0.cmp(&y.0)).unwrap().0;
-    let min_y_coord = map.iter().min_by(|x, y| x.1.cmp(&y.1)).unwrap().1;
-
-    map.iter_mut().for_each(|p| {
-        p.0 += num::abs(min_x_coord);
-        p.1 += num::abs(min_y_coord);
-    });
-}
-
-fn calculate_content(map: &Vec<Position>) -> usize {
+fn area_with_boundaries(map: &[Position]) -> u64 {
     let mut double_area = 0;
     let mut perimeter = 0;
     let n = map.len();
@@ -92,16 +82,16 @@ fn calculate_content(map: &Vec<Position>) -> usize {
     area.try_into().unwrap()
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
-    let mut map = parse_map(input, parse_line);
-    let res = calculate_content(&mut map);
-    Some(res as u32)
+pub fn part_one(input: &str) -> Option<u64> {
+    let map = parse_map(input, parse_line);
+    let res = area_with_boundaries(&map);
+    Some(res)
 }
 
 pub fn part_two(input: &str) -> Option<u64> {
-    let mut map = parse_map(input, parse_hex);
-    let res = calculate_content(&mut map);
-    Some(res as u64)
+    let map = parse_map(input, parse_hex);
+    let res = area_with_boundaries(&map);
+    Some(res)
 }
 
 #[cfg(test)]
