@@ -2,6 +2,8 @@ advent_of_code::solution!(4);
 use std::cmp;
 use std::collections::HashMap;
 
+use rayon::prelude::*;
+
 #[derive(Debug)]
 struct Card {
     winning: Vec<u32>,
@@ -47,12 +49,14 @@ impl Card {
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let mut total = 0;
-    input.lines().for_each(|l| {
-        let card = Card::new(&l);
-        total += card.get_points();
-    });
-    Some(total)
+    let result = input
+        .par_lines()
+        .map(|l| {
+            let card = Card::new(&l);
+            card.get_points()
+        })
+        .sum();
+    Some(result)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
