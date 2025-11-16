@@ -1,12 +1,11 @@
 use std::{cmp::Ordering, collections::HashMap};
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use regex::Regex;
 
 advent_of_code::solution!(19);
 
-type Rule = dyn Fn(usize) -> Option<Destination>;
-type Workflow = Vec<(char, Box<Rule>)>;
+type Rule<'a> = dyn Fn(usize) -> Option<&'a str> + 'a + Sync;
+type Workflow<'a> = Vec<(char, Box<Rule<'a>>)>;
 
 #[derive(Debug)]
 struct Part {
@@ -18,17 +17,28 @@ struct Part {
 
 impl Part {
     fn new(line: &str) -> Self {
-        let digit_re = Regex::new(r"\d+").unwrap();
+        let mut values = [0; 4];
 
-        let mut it = digit_re
-            .find_iter(line)
-            .map(|m| m.as_str().parse::<usize>().unwrap());
+        let mut num_start = None;
+        let mut value_idx = 0;
+        for (i, ch) in line.bytes().enumerate() {
+            if ch.is_ascii_digit() {
+                if num_start.is_none() {
+                    num_start = Some(i);
+                }
+            } else if let Some(start) = num_start {
+                let value = line[start..i].parse().unwrap();
+                values[value_idx] = value;
+                value_idx += 1;
+                num_start = None;
+            }
+        }
 
         Self {
-            x: it.next().unwrap(),
-            m: it.next().unwrap(),
-            a: it.next().unwrap(),
-            s: it.next().unwrap(),
+            x: values[0],
+            m: values[1],
+            a: values[2],
+            s: values[3],
         }
     }
 
@@ -37,13 +47,8 @@ impl Part {
     }
 }
 
-#[derive(Clone, Debug)]
-struct Destination {
-    name: String,
-}
-
-fn parse_inputs(input: &str) -> (Vec<Part>, HashMap<&str, Workflow>) {
-    let mut workflows: HashMap<&str, Workflow> = HashMap::new();
+fn parse_inputs<'a>(input: &'a str) -> (Vec<Part>, HashMap<&'a str, Workflow<'a>>) {
+    let mut workflows: HashMap<&'a str, Workflow<'a>> = HashMap::new();
     let mut parts: Vec<Part> = Vec::new();
 
     let mut finished_parsing_rulse = false;
@@ -62,7 +67,7 @@ fn parse_inputs(input: &str) -> (Vec<Part>, HashMap<&str, Workflow>) {
     (parts, workflows)
 }
 
-fn add_workflow<'a>(line: &'a str, workflows: &mut HashMap<&'a str, Workflow>) {
+fn add_workflow<'a>(line: &'a str, workflows: &mut HashMap<&'a str, Workflow<'a>>) {
     let mut it = line.split_terminator('{');
     let (name, rule) = (it.next().unwrap(), it.next().unwrap());
     let mut workflow = Workflow::new();
@@ -73,29 +78,25 @@ fn add_workflow<'a>(line: &'a str, workflows: &mut HashMap<&'a str, Workflow>) {
     workflows.insert(name, workflow);
 }
 
-fn parse_rule(rule: &str) -> (char, Box<Rule>) {
+fn parse_rule<'a>(rule: &'a str) -> (char, Box<Rule<'a>>) {
     if rule.contains(':') {
         let mut it = rule.split_terminator(':');
         let (variable_name_comparison, digit_str) = it.next().unwrap().split_at(2);
         let digit = digit_str.parse::<usize>().unwrap();
-        let destination = Destination {
-            name: it.next().unwrap().to_string(),
-        };
+        let destination = it.next();
         let (variable_name, comparison) = variable_name_comparison.split_at(1);
         let ordering = parse_comparison(comparison);
-        let function = move |val: usize| -> Option<Destination> {
+        let function = move |val: usize| -> Option<&str> {
             if val.cmp(&digit) == ordering {
-                return Some(destination.clone());
+                return destination;
             } else {
                 return None;
             }
         };
         (variable_name.chars().next().unwrap(), Box::new(function))
     } else {
-        let destination = Destination {
-            name: rule.trim_end_matches('}').to_string(),
-        };
-        ('d', Box::new(move |_| Some(destination.clone())))
+        let destination = rule.trim_end_matches('}');
+        ('d', Box::new(move |_| Some(destination)))
     }
 }
 
@@ -121,7 +122,7 @@ fn eval_workflow(
     } else {
         let dest = next_destination.unwrap();
         let workflows = rules.get(dest).unwrap();
-        let mut destination: Option<Destination> = None;
+        let mut destination: Option<&str> = None;
         for (category, rule) in workflows.iter() {
             destination = match category {
                 'x' => rule(part.x),
@@ -136,14 +137,14 @@ fn eval_workflow(
                 break;
             }
         }
-        eval_workflow(part, rules, Some(destination.unwrap().name.as_str()))
+        eval_workflow(part, rules, destination)
     }
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
     let (parts, rules) = parse_inputs(input);
     let result = parts
-        .iter()
+        .par_iter()
         .map(|part| eval_workflow(part, &rules, None))
         .sum::<usize>();
     Some(result as u32)
