@@ -1,7 +1,5 @@
 use std::{cmp::Ordering, collections::HashMap};
 
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-
 advent_of_code::solution!(19);
 
 type Rule<'a> = dyn Fn(usize) -> Option<&'a str> + 'a + Sync;
@@ -108,44 +106,40 @@ fn parse_comparison(comparison: &str) -> Ordering {
     }
 }
 
-fn eval_workflow(
-    part: &Part,
-    rules: &HashMap<&str, Workflow>,
-    next_destination: Option<&str>,
-) -> usize {
-    if next_destination.is_none() {
-        eval_workflow(part, rules, Some("in"))
-    } else if next_destination.unwrap() == "R" {
-        return 0;
-    } else if next_destination.unwrap() == "A" {
-        return part.sum();
-    } else {
-        let dest = next_destination.unwrap();
-        let workflows = rules.get(dest).unwrap();
-        let mut destination: Option<&str> = None;
-        for (category, rule) in workflows.iter() {
-            destination = match category {
-                'x' => rule(part.x),
-                'm' => rule(part.m),
-                'a' => rule(part.a),
-                's' => rule(part.s),
-                'd' => rule(0), // Default case doesn't take into consideration number
-                _ => panic!("FLD"),
-            };
+fn eval_workflow(part: &Part, rules: &HashMap<&str, Workflow>) -> usize {
+    let mut current_rule = "in";
+    loop {
+        match current_rule {
+            "R" => return 0,
+            "A" => return part.sum(),
+            _ => {
+                let workflow = rules.get(current_rule).unwrap();
+                let mut destination: Option<&str> = None;
+                for (category, rule) in workflow.iter() {
+                    destination = match category {
+                        'x' => rule(part.x),
+                        'm' => rule(part.m),
+                        'a' => rule(part.a),
+                        's' => rule(part.s),
+                        'd' => rule(0), // Default case
+                        _ => panic!("Unknown Category"),
+                    };
 
-            if destination.is_some() {
-                break;
+                    if destination.is_some() {
+                        break;
+                    }
+                }
+                current_rule = destination.unwrap();
             }
         }
-        eval_workflow(part, rules, destination)
     }
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
     let (parts, rules) = parse_inputs(input);
     let result = parts
-        .par_iter()
-        .map(|part| eval_workflow(part, &rules, None))
+        .iter()
+        .map(|part| eval_workflow(part, &rules))
         .sum::<usize>();
     Some(result as u32)
 }
@@ -163,7 +157,7 @@ mod tests {
         let part = Part::new("{x=787,m=2655,a=1222,s=2876}");
         let input = advent_of_code::template::read_file("examples", DAY);
         let (_, workflows) = parse_inputs(&input);
-        let result = eval_workflow(&part, &workflows, None);
+        let result = eval_workflow(&part, &workflows);
         assert_eq!(result, 7540);
     }
 
